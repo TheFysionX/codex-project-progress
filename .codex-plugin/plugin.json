@@ -1,7 +1,7 @@
 {
   "name": "codex-project-progress",
-  "version": "0.2.1",
-  "description": "Show an evidence-backed completion bar with one prominent ETA and the work happening now.",
+  "version": "0.3.0",
+  "description": "Show an evidence-backed completion bar with an adaptive ETA that learns from the work.",
   "author": {
     "name": "TheFysionX",
     "url": "https://github.com/TheFysionX"
@@ -19,7 +19,7 @@
   "interface": {
     "displayName": "Project Progress",
     "shortDescription": "One clear ETA, progress bar, and current task",
-    "longDescription": "Turn project evidence into an honest weighted completion percentage, a prominent ETA with uncertainty and confidence, and a single NOW status.",
+    "longDescription": "Turn project evidence into an honest weighted completion percentage, an adaptive ETA that learns from forecast errors and recent pace, a 90% high-confidence range, and a single NOW status.",
     "developerName": "TheFysionX",
     "category": "Productivity",
     "capabilities": [

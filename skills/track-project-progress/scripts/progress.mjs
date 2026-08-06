@@ -1,15 +1,22 @@
 #!/usr/bin/env node
 
-import { cp, mkdir, readFile, rename, stat } from "node:fs/promises";
+import { cp, mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const VALID_STATUSES = new Set(["not_started", "in_progress", "blocked", "done"]);
 const VALID_UNCERTAINTY = new Set(["low", "medium", "high"]);
+const VALID_TASK_TYPES = new Set(["planning", "research", "implementation", "debugging", "testing", "release", "other"]);
 const ANSI_PATTERN = /\u001b\[[0-9;]*m/g;
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const SKILL_DIRECTORY = resolve(dirname(SCRIPT_PATH), "..");
+const RANGE_COVERAGE = 0.9;
+const RANGE_Z = 1.6448536269514722;
+const PRIOR_LOG_BIAS = Math.log(1.2);
+const PRIOR_SIGMA = 0.65;
+const PRIOR_STRENGTH = 3;
+const SIMULATION_RUNS = 6000;
 
 function clientTargets(target, home = homedir()) {
   const openai = { client: "OpenAI (ChatGPT + Codex)", root: join(home, ".agents", "skills") };
@@ -44,8 +51,8 @@ export function validateLedger(data) {
   if (!data || typeof data !== "object" || Array.isArray(data)) {
     return ["ledger root must be a JSON object"];
   }
-  if (data.schema_version !== 1) {
-    errors.push("schema_version must be 1");
+  if (![1, 2].includes(data.schema_version)) {
+    errors.push("schema_version must be 1 or 2");
   }
 
   const project = data.project;
@@ -110,8 +117,20 @@ export function validateLedger(data) {
     }
 
     validateNumber(task.elapsed_minutes ?? 0, `${prefix}.elapsed_minutes`, errors);
+    if (task.initial_estimate_minutes !== null && task.initial_estimate_minutes !== undefined) {
+      validateNumber(task.initial_estimate_minutes, `${prefix}.initial_estimate_minutes`, errors, 0.000001);
+    }
     if (task.remaining_minutes !== null && task.remaining_minutes !== undefined) {
       validateNumber(task.remaining_minutes, `${prefix}.remaining_minutes`, errors);
+    }
+    if (!VALID_TASK_TYPES.has(task.task_type ?? "other")) {
+      errors.push(`${prefix}.task_type must be one of ${[...VALID_TASK_TYPES].sort().join(", ")}`);
+    }
+    for (const field of ["started_at", "completed_at", "updated_at"]) {
+      if (task[field] !== null && task[field] !== undefined
+        && (typeof task[field] !== "string" || Number.isNaN(Date.parse(task[field])))) {
+        errors.push(`${prefix}.${field} must be an ISO-8601 timestamp`);
+      }
     }
     if (!VALID_UNCERTAINTY.has(task.uncertainty ?? "medium")) {
       errors.push(`${prefix}.uncertainty must be one of ${[...VALID_UNCERTAINTY].sort().join(", ")}`);
@@ -130,6 +149,52 @@ export function validateLedger(data) {
 
   if (requiredCount === 0) {
     errors.push("at least one task must be required");
+  }
+
+  const history = data.forecast_history ?? [];
+  if (!Array.isArray(history)) {
+    errors.push("forecast_history must be an array");
+  } else {
+    history.forEach((entry, index) => {
+      const prefix = `forecast_history[${index}]`;
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        errors.push(`${prefix} must be an object`);
+        return;
+      }
+      if (typeof entry.at !== "string" || Number.isNaN(Date.parse(entry.at))) {
+        errors.push(`${prefix}.at must be an ISO-8601 timestamp`);
+      }
+      for (const field of ["active_elapsed_minutes", "earned_points", "total_points"]) {
+        validateNumber(entry[field], `${prefix}.${field}`, errors);
+      }
+      for (const field of ["likely_minutes", "low_minutes", "high_minutes"]) {
+        if (entry[field] !== null && entry[field] !== undefined) {
+          validateNumber(entry[field], `${prefix}.${field}`, errors);
+        }
+      }
+    });
+  }
+
+  const risks = data.risks ?? [];
+  if (!Array.isArray(risks)) {
+    errors.push("risks must be an array");
+  } else {
+    risks.forEach((risk, index) => {
+      const prefix = `risks[${index}]`;
+      if (!risk || typeof risk !== "object" || Array.isArray(risk)) {
+        errors.push(`${prefix} must be an object`);
+        return;
+      }
+      if (typeof risk.title !== "string" || !risk.title.trim()) {
+        errors.push(`${prefix}.title must be a non-empty string`);
+      }
+      const probability = validateNumber(risk.probability, `${prefix}.probability`, errors);
+      if (probability > 1) errors.push(`${prefix}.probability must be <= 1`);
+      validateNumber(risk.impact_minutes, `${prefix}.impact_minutes`, errors);
+      if (typeof (risk.active ?? true) !== "boolean") {
+        errors.push(`${prefix}.active must be true or false`);
+      }
+    });
   }
   return errors;
 }
@@ -154,6 +219,234 @@ export function requiredGoals(data) {
   });
 }
 
+function clamp(value, minimum, maximum) {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+function hashString(value) {
+  let hash = 2166136261;
+  for (const character of value) {
+    hash ^= character.codePointAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function mulberry32(seed) {
+  return () => {
+    let value = seed += 0x6d2b79f5;
+    value = Math.imul(value ^ value >>> 15, value | 1);
+    value ^= value + Math.imul(value ^ value >>> 7, value | 61);
+    return ((value ^ value >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function sampleNormal(random) {
+  const first = Math.max(Number.EPSILON, random());
+  const second = random();
+  return Math.sqrt(-2 * Math.log(first)) * Math.cos(2 * Math.PI * second);
+}
+
+function quantile(sorted, probability) {
+  if (!sorted.length) return null;
+  const index = (sorted.length - 1) * probability;
+  const lower = Math.floor(index);
+  const upper = Math.ceil(index);
+  if (lower === upper) return sorted[lower];
+  return sorted[lower] + (sorted[upper] - sorted[lower]) * (index - lower);
+}
+
+function timingObservations(tasks) {
+  const observations = [];
+  tasks.forEach((task, index) => {
+    const estimate = task.initial_estimate_minutes;
+    const actual = task.elapsed_minutes ?? 0;
+    if (!isFiniteNumber(estimate) || estimate <= 0 || actual <= 0) return;
+
+    if (task.status === "done") {
+      observations.push({
+        taskType: task.task_type ?? "other",
+        logRatio: Math.log(clamp(actual / estimate, 0.2, 5)),
+        baseWeight: 1,
+        index,
+        timestamp: Date.parse(task.completed_at ?? task.updated_at ?? ""),
+        completed: true,
+      });
+      return;
+    }
+
+    if (task.progress >= 0.1) {
+      const impliedTotal = actual / task.progress;
+      observations.push({
+        taskType: task.task_type ?? "other",
+        logRatio: Math.log(clamp(impliedTotal / estimate, 0.2, 5)),
+        baseWeight: clamp(task.progress * 0.75, 0.15, 0.7),
+        index,
+        timestamp: Date.parse(task.updated_at ?? task.started_at ?? ""),
+        completed: false,
+      });
+    } else if (actual > estimate) {
+      const impliedTotal = actual + Math.max(task.remaining_minutes ?? 0, estimate * 0.5);
+      observations.push({
+        taskType: task.task_type ?? "other",
+        logRatio: Math.log(clamp(impliedTotal / estimate, 0.2, 5)),
+        baseWeight: 0.25,
+        index,
+        timestamp: Date.parse(task.updated_at ?? task.started_at ?? ""),
+        completed: false,
+      });
+    }
+  });
+  observations.sort((left, right) => {
+    if (Number.isFinite(left.timestamp) && Number.isFinite(right.timestamp)) {
+      return left.timestamp - right.timestamp;
+    }
+    return left.index - right.index;
+  });
+  return observations.map((observation, sequence) => ({ ...observation, sequence }));
+}
+
+function calibration(observations, taskType = null) {
+  let weightTotal = PRIOR_STRENGTH;
+  let weightedLogRatio = PRIOR_STRENGTH * PRIOR_LOG_BIAS;
+  const lastSequence = observations.length ? observations.at(-1).sequence : 0;
+  const weighted = observations.map((observation) => {
+    const typeWeight = taskType === null
+      ? 1
+      : observation.taskType === taskType ? 1 : 0.35;
+    const recencyWeight = 0.9 ** Math.max(0, lastSequence - observation.sequence);
+    const weight = observation.baseWeight * typeWeight * recencyWeight;
+    weightTotal += weight;
+    weightedLogRatio += weight * observation.logRatio;
+    return { ...observation, weight };
+  });
+  const mean = weightedLogRatio / weightTotal;
+  let variance = PRIOR_STRENGTH * (PRIOR_SIGMA ** 2 + (PRIOR_LOG_BIAS - mean) ** 2);
+  for (const observation of weighted) {
+    variance += observation.weight * (observation.logRatio - mean) ** 2;
+  }
+  return {
+    logBias: mean,
+    biasFactor: Math.exp(mean),
+    sigma: clamp(Math.sqrt(variance / weightTotal), 0.25, 1.2),
+    effectiveObservations: Math.max(0, weightTotal - PRIOR_STRENGTH),
+  };
+}
+
+function taskBaseRemaining(task) {
+  if (isFiniteNumber(task.remaining_minutes)) return task.remaining_minutes;
+  if (isFiniteNumber(task.initial_estimate_minutes)) {
+    return task.initial_estimate_minutes * (1 - task.progress);
+  }
+  return null;
+}
+
+function uncertaintySigma(task) {
+  return { low: 0.28, medium: 0.5, high: 0.82 }[task.uncertainty ?? "medium"];
+}
+
+function simulateTaskEta(data, incomplete, remainingPoints, pacePerPoint, observations) {
+  const random = mulberry32(hashString(`${data.project.name}:${data.project.goal}`));
+  const prepared = [];
+  let coveredPoints = 0;
+
+  for (const task of incomplete) {
+    const taskRemainingPoints = task.weight * (1 - task.progress);
+    let base = taskBaseRemaining(task);
+    if (base === null && isFiniteNumber(pacePerPoint)) {
+      base = pacePerPoint * taskRemainingPoints;
+    }
+    if (base === null) continue;
+
+    coveredPoints += taskRemainingPoints;
+    const taskCalibration = calibration(observations, task.task_type ?? "other");
+    let median = base * taskCalibration.biasFactor;
+    if (task.progress > 0 && (task.elapsed_minutes ?? 0) > 0) {
+      const impliedRemaining = task.elapsed_minutes * (1 - task.progress) / task.progress;
+      median = Math.max(median, impliedRemaining);
+    }
+    prepared.push({
+      median,
+      sigma: uncertaintySigma(task),
+      taskCalibration,
+    });
+  }
+
+  if (!prepared.length || coveredPoints <= 0) return null;
+  const coverageScale = remainingPoints / coveredPoints;
+  const globalCalibration = calibration(observations);
+  const sharedSigma = Math.max(0.18, globalCalibration.sigma * 0.55);
+  const activeRisks = (data.risks ?? []).filter((risk) => risk.active ?? true);
+  const samples = [];
+
+  for (let iteration = 0; iteration < SIMULATION_RUNS; iteration += 1) {
+    let total = 0;
+    for (const task of prepared) {
+      total += task.median * Math.exp(task.sigma * sampleNormal(random));
+    }
+    total *= coverageScale * Math.exp(sharedSigma * sampleNormal(random));
+    for (const risk of activeRisks) {
+      if (random() < risk.probability) {
+        total += risk.impact_minutes * Math.exp(0.35 * sampleNormal(random));
+      }
+    }
+    samples.push(Math.max(0, total));
+  }
+
+  samples.sort((left, right) => left - right);
+  return {
+    p05: quantile(samples, 0.05),
+    p50: quantile(samples, 0.5),
+    p95: quantile(samples, 0.95),
+    coverage: coveredPoints / remainingPoints,
+  };
+}
+
+function recentPace(data, elapsedMinutes, earnedPoints, remainingPoints, fallback) {
+  const history = [...(data.forecast_history ?? [])]
+    .filter((entry) => entry.active_elapsed_minutes < elapsedMinutes - 0.01)
+    .sort((left, right) => Date.parse(left.at) - Date.parse(right.at));
+  const previous = history.at(-1);
+  if (!previous) return { minutes: null, stalled: false, checkpoint: null };
+
+  const activeDelta = elapsedMinutes - previous.active_elapsed_minutes;
+  const earnedDelta = earnedPoints - previous.earned_points;
+  if (activeDelta <= 0) return { minutes: null, stalled: false, checkpoint: previous };
+  if (earnedDelta > 0.05) {
+    return {
+      minutes: (activeDelta / earnedDelta) * remainingPoints,
+      stalled: false,
+      checkpoint: previous,
+    };
+  }
+
+  const previousEta = isFiniteNumber(previous.likely_minutes) ? previous.likely_minutes : fallback;
+  if (!isFiniteNumber(previousEta)) return { minutes: null, stalled: true, checkpoint: previous };
+  const stallFactor = 1 + Math.min(2, activeDelta / Math.max(15, previousEta * 0.5));
+  return {
+    minutes: previousEta * stallFactor,
+    stalled: true,
+    checkpoint: previous,
+  };
+}
+
+function weightedGeometricMean(candidates) {
+  const usable = candidates.filter((candidate) => isFiniteNumber(candidate.minutes) && candidate.minutes > 0 && candidate.weight > 0);
+  if (!usable.length) return null;
+  const weightTotal = usable.reduce((sum, candidate) => sum + candidate.weight, 0);
+  return Math.exp(usable.reduce((sum, candidate) => sum + candidate.weight * Math.log(candidate.minutes), 0) / weightTotal);
+}
+
+function weightedLogDisagreement(candidates, center) {
+  const usable = candidates.filter((candidate) => isFiniteNumber(candidate.minutes) && candidate.minutes > 0 && candidate.weight > 0);
+  if (usable.length < 2 || !isFiniteNumber(center) || center <= 0) return 0;
+  const weightTotal = usable.reduce((sum, candidate) => sum + candidate.weight, 0);
+  const variance = usable.reduce((sum, candidate) => (
+    sum + candidate.weight * (Math.log(candidate.minutes / center) ** 2)
+  ), 0) / weightTotal;
+  return Math.sqrt(variance);
+}
+
 export function calculate(data) {
   const tasks = data.tasks.filter((task) => task.required ?? true);
   const totalPoints = tasks.reduce((sum, task) => sum + task.weight, 0);
@@ -167,77 +460,90 @@ export function calculate(data) {
   const currentTasks = incomplete
     .filter((task) => ["in_progress", "blocked"].includes(task.status))
     .map((task) => task.title);
+  const observations = timingObservations(tasks);
+  const globalCalibration = calibration(observations);
 
-  let coveredPoints = 0;
-  let knownRemaining = 0;
-  let highUncertaintyPoints = 0;
-  for (const task of incomplete) {
-    const taskRemainingPoints = task.weight * (1 - task.progress);
-    if (task.remaining_minutes !== null && task.remaining_minutes !== undefined) {
-      coveredPoints += taskRemainingPoints;
-      knownRemaining += task.remaining_minutes;
-    }
-    if ((task.uncertainty ?? "medium") === "high") {
-      highUncertaintyPoints += taskRemainingPoints;
-    }
+  if (remainingPoints === 0) {
+    return {
+      percent,
+      earnedPoints,
+      totalPoints,
+      elapsedMinutes,
+      likelyMinutes: 0,
+      lowMinutes: 0,
+      highMinutes: 0,
+      confidence: "high confidence",
+      rangeCoverage: RANGE_COVERAGE,
+      calibrationStage: "complete",
+      effectiveObservations: globalCalibration.effectiveObservations,
+      forecastErrorFactor: globalCalibration.biasFactor,
+      estimateBasis: "complete",
+      modelCandidates: [],
+      recentStall: false,
+      blockers,
+      completedTasks,
+      requiredTasks: tasks.length,
+      currentTasks,
+      goals: requiredGoals(data),
+    };
   }
 
-  const coverage = remainingPoints ? coveredPoints / remainingPoints : 1;
-  const bottomUp = coveredPoints > 0 ? (knownRemaining * remainingPoints) / coveredPoints : null;
   const observed = earnedPoints > 0 && elapsedMinutes > 0
     ? (elapsedMinutes / earnedPoints) * remainingPoints
     : null;
+  const pacePerPoint = earnedPoints > 0 && elapsedMinutes > 0
+    ? elapsedMinutes / earnedPoints
+    : null;
+  const taskSimulation = simulateTaskEta(data, incomplete, remainingPoints, pacePerPoint, observations);
+  const taskCandidate = taskSimulation?.p50 ?? null;
+  const recent = recentPace(data, elapsedMinutes, earnedPoints, remainingPoints, taskCandidate ?? observed);
+  const candidates = [
+    {
+      name: "calibrated task simulation",
+      minutes: taskCandidate,
+      weight: taskSimulation ? 0.4 + 1.4 * taskSimulation.coverage : 0,
+    },
+    {
+      name: "whole-project throughput",
+      minutes: observed,
+      weight: observed === null ? 0 : clamp(earnedPoints / Math.max(1, totalPoints * 0.25), 0.25, 2),
+    },
+    {
+      name: recent.stalled ? "recent stall correction" : "recent throughput",
+      minutes: recent.minutes,
+      weight: recent.minutes === null ? 0 : recent.stalled ? 2 : 1.35,
+    },
+  ];
+  const likelyMinutes = weightedGeometricMean(candidates);
+  const estimateBasis = candidates
+    .filter((candidate) => candidate.weight > 0 && isFiniteNumber(candidate.minutes))
+    .map((candidate) => candidate.name)
+    .join(" + ") || "insufficient timing evidence";
 
-  let likelyMinutes;
-  let lowMinutes;
-  let highMinutes;
-  let confidence;
-  let estimateBasis;
-
-  if (remainingPoints === 0) {
-    likelyMinutes = lowMinutes = highMinutes = 0;
+  let lowMinutes = null;
+  let highMinutes = null;
+  let confidence = "insufficient timing evidence";
+  if (likelyMinutes !== null) {
+    let simulationSigma = 0;
+    if (taskSimulation?.p05 > 0 && taskSimulation?.p95 > 0) {
+      simulationSigma = Math.log(taskSimulation.p95 / taskSimulation.p05) / (2 * RANGE_Z);
+    }
+    const disagreementSigma = weightedLogDisagreement(candidates, likelyMinutes);
+    const stageFloor = globalCalibration.effectiveObservations >= 8
+      ? 0.35
+      : globalCalibration.effectiveObservations >= 2 ? 0.5 : PRIOR_SIGMA;
+    const rangeSigma = clamp(Math.sqrt(
+      Math.max(stageFloor, simulationSigma, globalCalibration.sigma * 0.75) ** 2
+      + disagreementSigma ** 2
+    ), stageFloor, 1.35);
+    lowMinutes = likelyMinutes * Math.exp(-RANGE_Z * rangeSigma);
+    highMinutes = likelyMinutes * Math.exp(RANGE_Z * rangeSigma);
     confidence = "high confidence";
-    estimateBasis = "complete";
-  } else {
-    if (bottomUp !== null && observed !== null) {
-      const observedWeight = Math.min(0.75, Math.max(0.2, completedTasks / 6));
-      likelyMinutes = observedWeight * observed + (1 - observedWeight) * bottomUp;
-      estimateBasis = "bottom-up estimates + observed throughput";
-    } else if (bottomUp !== null) {
-      likelyMinutes = bottomUp;
-      estimateBasis = "bottom-up estimates";
-    } else if (observed !== null) {
-      likelyMinutes = observed;
-      estimateBasis = "observed throughput";
-    } else {
-      likelyMinutes = null;
-      estimateBasis = "insufficient timing evidence";
-    }
-
-    const highUncertaintyShare = remainingPoints ? highUncertaintyPoints / remainingPoints : 0;
-    if (likelyMinutes === null) {
-      confidence = "low confidence";
-    } else if (completedTasks >= 5 && percent >= 50 && coverage >= 0.8 && highUncertaintyShare < 0.2) {
-      confidence = "high confidence";
-    } else if ((completedTasks >= 2 || percent >= 20) && coverage >= 0.4 && highUncertaintyShare < 0.6) {
-      confidence = "medium confidence";
-    } else {
-      confidence = "low confidence";
-    }
-
-    const factors = {
-      "high confidence": [0.85, 1.25],
-      "medium confidence": [0.7, 1.5],
-      "low confidence": [0.5, 2],
-    };
-    if (likelyMinutes === null) {
-      lowMinutes = highMinutes = null;
-    } else {
-      const [lowFactor, highFactor] = factors[confidence];
-      lowMinutes = likelyMinutes * lowFactor;
-      highMinutes = likelyMinutes * highFactor;
-    }
   }
+
+  const calibrationStage = globalCalibration.effectiveObservations >= 8
+    ? "calibrated"
+    : globalCalibration.effectiveObservations >= 2 ? "learning" : "prior";
 
   return {
     percent,
@@ -248,7 +554,15 @@ export function calculate(data) {
     lowMinutes,
     highMinutes,
     confidence,
+    rangeCoverage: RANGE_COVERAGE,
+    calibrationStage,
+    effectiveObservations: globalCalibration.effectiveObservations,
+    forecastErrorFactor: globalCalibration.biasFactor,
     estimateBasis,
+    modelCandidates: candidates
+      .filter((candidate) => candidate.weight > 0 && isFiniteNumber(candidate.minutes))
+      .map((candidate) => ({ name: candidate.name, minutes: candidate.minutes, weight: candidate.weight })),
+    recentStall: recent.stalled,
     blockers,
     completedTasks,
     requiredTasks: tasks.length,
@@ -320,7 +634,6 @@ function makeEmojiBar(metrics, width = 10) {
   let full = "🟩";
   if (metrics.percent >= 100) full = "🟦";
   else if (metrics.blockers.length) full = "🟥";
-  else if (metrics.confidence === "low confidence") full = "🟨";
   return full.repeat(filled) + "⬜".repeat(width - filled);
 }
 
@@ -329,7 +642,7 @@ function etaText(metrics) {
   if (metrics.blockers.length) {
     return `PAUSED · ~${formatDuration(metrics.likelyMinutes)} remains · blocked by ${metrics.blockers.join(", ")}`;
   }
-  if (metrics.likelyMinutes === null) return "Unknown · low confidence";
+  if (metrics.likelyMinutes === null) return "CALIBRATING · add an active-time or remaining-work estimate";
   return `~${formatDuration(metrics.likelyMinutes)} (${formatDuration(metrics.lowMinutes)}–${formatDuration(metrics.highMinutes)}) · ${metrics.confidence}`;
 }
 
@@ -413,7 +726,17 @@ export function metricsAsJson(data, metrics, ascii = false) {
       metrics.highMinutes === null ? null : Number(metrics.highMinutes.toFixed(2)),
     ],
     confidence: metrics.confidence,
+    range_coverage: metrics.rangeCoverage,
+    calibration_stage: metrics.calibrationStage,
+    effective_observations: Number(metrics.effectiveObservations.toFixed(2)),
+    forecast_error_factor: Number(metrics.forecastErrorFactor.toFixed(3)),
     estimate_basis: metrics.estimateBasis,
+    model_candidates: metrics.modelCandidates.map((candidate) => ({
+      name: candidate.name,
+      minutes: Number(candidate.minutes.toFixed(2)),
+      weight: Number(candidate.weight.toFixed(3)),
+    })),
+    recent_stall: metrics.recentStall,
     current_tasks: metrics.currentTasks,
     blockers: metrics.blockers,
     required_goals: metrics.goals,
@@ -442,7 +765,7 @@ export async function loadLedger(path) {
 
 function demoLedger() {
   return {
-    schema_version: 1,
+    schema_version: 2,
     project: {
       name: "Project Atlas",
       goal: "Ship the public beta",
@@ -450,10 +773,13 @@ function demoLedger() {
       scope_source: "confirmed",
     },
     tasks: [
-      { id: "scope", title: "Confirm scope", milestone: "Scope", required: true, weight: 2, status: "done", progress: 1, elapsed_minutes: 20, remaining_minutes: 0, uncertainty: "low", blocking: false, evidence: ["Acceptance scope confirmed"] },
-      { id: "build", title: "Build core workflow", milestone: "Implementation", required: true, weight: 5, status: "done", progress: 1, elapsed_minutes: 70, remaining_minutes: 0, uncertainty: "low", blocking: false, evidence: ["Focused tests pass"] },
-      { id: "verify", title: "Verify production path", milestone: "Verification", required: true, weight: 3, status: "in_progress", progress: 0.5, elapsed_minutes: 20, remaining_minutes: 35, uncertainty: "medium", blocking: false, evidence: ["Staging path verified"] },
-      { id: "release", title: "Publish release", milestone: "Release", required: true, weight: 2, status: "not_started", progress: 0, elapsed_minutes: 0, remaining_minutes: 20, uncertainty: "medium", blocking: false, evidence: [] },
+      { id: "scope", title: "Confirm scope", milestone: "Scope", task_type: "planning", required: true, weight: 2, status: "done", progress: 1, initial_estimate_minutes: 15, elapsed_minutes: 20, remaining_minutes: 0, uncertainty: "low", blocking: false, evidence: ["Acceptance scope confirmed"] },
+      { id: "build", title: "Build core workflow", milestone: "Implementation", task_type: "implementation", required: true, weight: 5, status: "done", progress: 1, initial_estimate_minutes: 60, elapsed_minutes: 70, remaining_minutes: 0, uncertainty: "low", blocking: false, evidence: ["Focused tests pass"] },
+      { id: "verify", title: "Verify production path", milestone: "Verification", task_type: "testing", required: true, weight: 3, status: "in_progress", progress: 0.5, initial_estimate_minutes: 55, elapsed_minutes: 20, remaining_minutes: 35, uncertainty: "medium", blocking: false, evidence: ["Staging path verified"] },
+      { id: "release", title: "Publish release", milestone: "Release", task_type: "release", required: true, weight: 2, status: "not_started", progress: 0, initial_estimate_minutes: 20, elapsed_minutes: 0, remaining_minutes: 20, uncertainty: "medium", blocking: false, evidence: [] },
+    ],
+    forecast_history: [
+      { at: "2026-08-06T09:45:00-07:00", active_elapsed_minutes: 90, earned_points: 7, total_points: 12, likely_minutes: 62, low_minutes: 28, high_minutes: 150 },
     ],
   };
 }
@@ -525,7 +851,7 @@ async function installSkill(destinationRoot, force) {
 }
 
 function helpText() {
-  return `codex-project-progress 0.2.1
+  return `codex-project-progress 0.3.0
 
 Install and render the Track Project Progress agent skill.
 
@@ -535,6 +861,7 @@ Usage:
   codex-project-progress demo [--theme box|compact|plain] [--ascii]
   codex-project-progress validate [ledger]
   codex-project-progress render [ledger] [--theme box|compact|plain]
+  codex-project-progress checkpoint [ledger]
 
 Options:
   --ascii                 Use ASCII-only borders and markers
@@ -586,15 +913,43 @@ export async function main(argv = process.argv.slice(2)) {
   }
 
   let data;
+  let ledgerPath;
   if (command === "demo") {
     data = demoLedger();
-  } else if (["validate", "render"].includes(command)) {
-    const ledgerPath = options.positionals[0]
+  } else if (["validate", "render", "checkpoint"].includes(command)) {
+    ledgerPath = options.positionals[0]
       ? resolve(options.positionals[0])
       : await defaultLedgerPath();
     data = await loadLedger(ledgerPath);
     if (command === "validate") {
       process.stdout.write(`Ledger is valid: ${ledgerPath}\n`);
+      return 0;
+    }
+    if (command === "checkpoint") {
+      const metrics = calculate(data);
+      const entry = {
+        at: new Date().toISOString(),
+        active_elapsed_minutes: Number(metrics.elapsedMinutes.toFixed(3)),
+        earned_points: Number(metrics.earnedPoints.toFixed(3)),
+        total_points: Number(metrics.totalPoints.toFixed(3)),
+        likely_minutes: metrics.likelyMinutes === null ? null : Number(metrics.likelyMinutes.toFixed(3)),
+        low_minutes: metrics.lowMinutes === null ? null : Number(metrics.lowMinutes.toFixed(3)),
+        high_minutes: metrics.highMinutes === null ? null : Number(metrics.highMinutes.toFixed(3)),
+      };
+      const previous = (data.forecast_history ?? []).at(-1);
+      const unchanged = previous
+        && previous.active_elapsed_minutes === entry.active_elapsed_minutes
+        && previous.earned_points === entry.earned_points
+        && previous.total_points === entry.total_points;
+      if (unchanged) {
+        process.stdout.write(`Checkpoint unchanged: ${ledgerPath}\n`);
+        return 0;
+      }
+      data.schema_version = 2;
+      data.forecast_history = [...(data.forecast_history ?? []), entry].slice(-50);
+      data.updated_at = entry.at;
+      await writeFile(ledgerPath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
+      process.stdout.write(`Checkpoint recorded: ${ledgerPath}\n`);
       return 0;
     }
   } else {

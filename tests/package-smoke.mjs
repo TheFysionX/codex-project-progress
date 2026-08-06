@@ -19,12 +19,13 @@ for (const required of [
   "skills/track-project-progress/SKILL.md",
   "skills/track-project-progress/agents/openai.yaml",
   "skills/track-project-progress/references/ledger-format.md",
+  "skills/track-project-progress/references/eta-model.md",
   "skills/track-project-progress/scripts/progress.mjs",
 ]) {
   assert.ok(files.has(required), `packed package is missing ${required}`);
 }
 
 assert.equal(report.name, "codex-project-progress");
-assert.equal(report.version, "0.2.1");
+assert.equal(report.version, "0.3.0");
 assert.ok(![...files].some((path) => path.includes("__pycache__") || path.endsWith(".pyc")));
 process.stdout.write(`Package smoke test passed: ${report.filename} (${report.size} bytes)\n`);

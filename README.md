@@ -7,7 +7,7 @@ An ETA-first Agent Skill and dependency-free NPX tool for ChatGPT, Codex, Claude
 │ GOAL  Ship the public beta                                           │
 ├──────────────────────────────────────────────────────────────────────┤
 │ ETA                                                                  │
-│ ~52m (36m–1h 18m) · medium confidence                                │
+│ ~52m (22m–2h 6m) · high confidence                                   │
 │ 🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜                                             71% │
 ├──────────────────────────────────────────────────────────────────────┤
 │ NOW  Verify production path                                          │
@@ -94,15 +94,20 @@ npx codex-project-progress render .project-progress.json --markdown
 npx codex-project-progress render .project-progress.json --ascii --no-color
 npx codex-project-progress render .project-progress.json --json
 npx codex-project-progress validate .project-progress.json
+npx codex-project-progress checkpoint .project-progress.json
 ```
 
-Available themes are `box`, `compact`, and `plain`. Interactive terminals use ANSI color. Unicode chat surfaces use colored emoji bars: green for active progress, amber for low confidence, red for blockers, and blue for complete.
+Available themes are `box`, `compact`, and `plain`. Interactive terminals use ANSI color. Unicode chat surfaces use colored emoji bars: green for active progress, red for blockers, and blue for complete.
 
 ## How the estimate works
 
 The percentage uses earned weighted points rather than a raw task count. Required implementation, verification, deployment, and acceptance work can carry different weights, and a task reaches done only when its evidence exists.
 
-The ETA is active work time, not a calendar promise. It combines bottom-up remaining-task estimates with observed active time per earned weighted point. The parenthesized range widens when evidence is sparse or uncertain. Waiting, idle time, and unattended external jobs are excluded; blocking dependencies pause the ETA.
+The ETA is active work time, not a calendar promise. Version 0.3 combines three forecasts: a Monte Carlo simulation of calibrated remaining tasks, whole-project throughput, and recent throughput since the previous checkpoint. It learns each task type's multiplicative forecast error from the original estimate versus actual active time. When work consumes time without producing progress, the stall correction moves the ETA upward automatically.
+
+The parenthesized interval targets 90% coverage. `high confidence` describes that deliberately wide range, not certainty that the center number is exact. Sparse data, task uncertainty, model disagreement, and explicit risks widen the interval; repeated comparable results can narrow it. Waiting, idle time, and unattended external jobs are excluded, and blocking dependencies pause the ETA.
+
+The full formula and its research basis are documented in [`references/eta-model.md`](skills/track-project-progress/references/eta-model.md).
 
 ## Test and develop
 

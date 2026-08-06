@@ -1,7 +1,7 @@
 {
   "name": "codex-project-progress",
-  "version": "0.2.1",
-  "description": "ETA-first project progress bars for ChatGPT, Codex, Claude Code, and NPX.",
+  "version": "0.3.0",
+  "description": "Adaptive ETA-first project progress bars for ChatGPT, Codex, Claude Code, and NPX.",
   "type": "module",
   "bin": {
     "codex-project-progress": "skills/track-project-progress/scripts/progress.mjs"
