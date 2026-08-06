@@ -6,10 +6,13 @@ import test from "node:test";
 const script = fileURLToPath(new URL("../skills/track-project-progress/scripts/progress.mjs", import.meta.url));
 const ledger = fileURLToPath(new URL("./fixtures/sample-ledger.json", import.meta.url));
 
-function run(args) {
+function run(args, { noColor = true } = {}) {
+  const env = { ...process.env };
+  if (noColor) env.NO_COLOR = "1";
+  else delete env.NO_COLOR;
   return spawnSync(process.execPath, [script, ...args], {
     encoding: "utf8",
-    env: { ...process.env, NO_COLOR: "1" },
+    env,
   });
 }
 
@@ -32,9 +35,17 @@ test("CLI demo renders without a ledger", () => {
   const result = run(["demo", "--theme", "compact", "--ascii", "--no-color"]);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Project Atlas · Ship the public beta 71%/);
-  assert.match(result.stdout, /ETA ~52m ACTIVE WORK/);
+  assert.match(result.stdout, /ETA 36m–1h 18m LIKELY RANGE/);
+  assert.match(result.stdout, /~52m active work · medium confidence/);
   assert.match(result.stdout, /NOW Verify production path/);
   assert.doesNotMatch(result.stdout, /Required goals:/);
+});
+
+test("CLI uses emoji color when ANSI color is unavailable", () => {
+  const result = run(["demo", "--theme", "compact"], { noColor: false });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /🟩{7}⬜{3}/u);
+  assert.doesNotMatch(result.stdout, /\u001b\[/);
 });
 
 test("CLI rejects unsupported themes", () => {

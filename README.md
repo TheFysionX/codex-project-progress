@@ -5,11 +5,11 @@ An installable Codex skill and dependency-free NPX tool that turns project evide
 ```text
 ┌──────────────────────────────────────────────────────────────────────┐
 │ Project Atlas · Ship the public beta                             71% │
-│ ████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░ │
+│ 🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜                                                 │
 ├──────────────────────────────────────────────────────────────────────┤
 │ ETA                                                                  │
-│ ~52m ACTIVE WORK                                                     │
-│ Likely range 36m–1h 18m · medium confidence                          │
+│ 36m–1h 18m LIKELY RANGE                                              │
+│ ~52m active work · medium confidence                                 │
 ├──────────────────────────────────────────────────────────────────────┤
 │ NOW  Verify production path                                          │
 └──────────────────────────────────────────────────────────────────────┘
@@ -71,7 +71,7 @@ npx codex-project-progress render .codex/project-progress.json --json
 npx codex-project-progress validate .codex/project-progress.json
 ```
 
-Available themes are `box`, `compact`, and `plain`. Color is automatic in interactive terminals and can be controlled with `--color always`, `--color never`, or `--no-color`.
+Available themes are `box`, `compact`, and `plain`. Interactive terminals use ANSI color automatically. Codex and other non-interactive Unicode surfaces fall back to colored emoji bars: green for active progress, amber for low confidence, red for blockers, and blue for complete. Use `--color never`, `--no-color`, or `--ascii` for monochrome output.
 
 ## Install directly from GitHub
 

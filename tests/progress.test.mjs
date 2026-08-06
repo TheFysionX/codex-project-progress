@@ -59,9 +59,27 @@ test("reports complete only when all required tasks are done", async () => {
 
 test("boxed visualization matches its reviewed snapshot", async () => {
   const data = await fixture();
-  const output = renderText(data, calculate(data), { theme: "box", width: 72, color: false });
+  const output = renderText(data, calculate(data), { theme: "box", width: 72, color: false, emoji: true });
   const expected = (await readFile(snapshotUrl, "utf8")).trimEnd();
   assert.equal(output, expected);
+});
+
+test("emoji bars communicate healthy, blocked, and complete states", async () => {
+  const data = await fixture();
+  assert.match(renderText(data, calculate(data), { theme: "compact", emoji: true }), /🟩{7}⬜{3}/u);
+
+  data.tasks[2].status = "blocked";
+  data.tasks[2].blocking = true;
+  assert.match(renderText(data, calculate(data), { theme: "compact", emoji: true }), /🟥{7}⬜{3}/u);
+
+  for (const task of data.tasks.filter((item) => item.required)) {
+    task.status = "done";
+    task.progress = 1;
+    task.remaining_minutes = 0;
+    task.blocking = false;
+    task.evidence = ["Verified"];
+  }
+  assert.match(renderText(data, calculate(data), { theme: "compact", emoji: true }), /🟦{10}/u);
 });
 
 test("compact ASCII visualization remains readable", async () => {
@@ -74,7 +92,8 @@ test("compact ASCII visualization remains readable", async () => {
   });
   assert.match(output, /^Project Atlas · Ship the public beta 71%/);
   assert.match(output, /#+-+/);
-  assert.match(output, /ETA ~52m ACTIVE WORK/);
+  assert.match(output, /ETA 36m–1h 18m LIKELY RANGE/);
+  assert.match(output, /~52m active work · medium confidence/);
   assert.match(output, /NOW Verify production path/);
   assert.doesNotMatch(output, /Required goals|DONE|SCOPE/);
 });

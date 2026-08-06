@@ -264,12 +264,22 @@ function stripAnsi(value) {
   return value.replace(ANSI_PATTERN, "");
 }
 
+function visibleWidth(value) {
+  let width = 0;
+  for (const character of stripAnsi(value)) {
+    const codePoint = character.codePointAt(0);
+    const isWideSymbol = codePoint >= 0x1f000 || [0x26aa, 0x2b1b, 0x2b1c].includes(codePoint);
+    width += isWideSymbol ? 2 : 1;
+  }
+  return width;
+}
+
 function paint(value, code, enabled) {
   return enabled ? `\u001b[${code}m${value}\u001b[0m` : value;
 }
 
 function padVisible(value, width) {
-  const length = stripAnsi(value).length;
+  const length = visibleWidth(value);
   return value + " ".repeat(Math.max(0, width - length));
 }
 
@@ -293,6 +303,15 @@ export function makeBar(percent, width, asciiOnly = false, color = false) {
   return paint(full.repeat(filled), percentColor(percent), color) + empty.repeat(width - filled);
 }
 
+function makeEmojiBar(metrics, width = 10) {
+  const filled = Math.min(width, Math.max(0, Math.round((width * metrics.percent) / 100)));
+  let full = "🟩";
+  if (metrics.percent >= 100) full = "🟦";
+  else if (metrics.blockers.length) full = "🟥";
+  else if (metrics.confidence === "low confidence") full = "🟨";
+  return full.repeat(filled) + "⬜".repeat(width - filled);
+}
+
 function etaText(metrics) {
   return `${etaHeadline(metrics)} · ${etaDetail(metrics)}`;
 }
@@ -300,8 +319,8 @@ function etaText(metrics) {
 function etaHeadline(metrics) {
   if (metrics.percent >= 100) return "COMPLETE";
   if (metrics.blockers.length) return "PAUSED";
-  if (metrics.likelyMinutes === null) return "UNKNOWN";
-  return `~${formatDuration(metrics.likelyMinutes)} ACTIVE WORK`;
+  if (metrics.likelyMinutes === null) return "NO RELIABLE RANGE";
+  return `${formatDuration(metrics.lowMinutes)}–${formatDuration(metrics.highMinutes)} LIKELY RANGE`;
 }
 
 function etaDetail(metrics) {
@@ -310,7 +329,7 @@ function etaDetail(metrics) {
     return `Blocked by ${metrics.blockers.join(", ")} · ${formatDuration(metrics.likelyMinutes)} active work remains`;
   }
   if (metrics.likelyMinutes === null) return "Not enough timing evidence · low confidence";
-  return `Likely range ${formatDuration(metrics.lowMinutes)}–${formatDuration(metrics.highMinutes)} · ${metrics.confidence}`;
+  return `~${formatDuration(metrics.likelyMinutes)} active work · ${metrics.confidence}`;
 }
 
 function renderBox(data, metrics, options) {
@@ -332,7 +351,7 @@ function renderBox(data, metrics, options) {
   const lines = [
     border(chars.topLeft, chars.topRight),
     line(title + " ".repeat(headerGap) + headerPercent),
-    line(makeBar(metrics.percent, contentWidth, ascii, color)),
+    line(options.emoji ? makeEmojiBar(metrics) : makeBar(metrics.percent, contentWidth, ascii, color)),
     separator,
     line(paint("ETA", "1;36", color)),
     line(paint(fit(etaHeadline(metrics), contentWidth, ascii), "1", color)),
@@ -349,7 +368,7 @@ function renderCompact(data, metrics, options) {
   const title = `${data.project.name} · ${data.project.goal}`;
   return [
     `${paint(title, "1;36", options.color)} ${paint(`${metrics.percent.toFixed(0)}%`, `1;${percentColor(metrics.percent)}`, options.color)}`,
-    makeBar(metrics.percent, barWidth, options.ascii, options.color),
+    options.emoji ? makeEmojiBar(metrics) : makeBar(metrics.percent, barWidth, options.ascii, options.color),
     `${paint("ETA", "1;36", options.color)} ${paint(etaHeadline(metrics), "1", options.color)}`,
     `    ${etaDetail(metrics)}`,
     `${paint("NOW", "1", options.color)} ${metrics.currentTasks.join(", ") || "none"}`,
@@ -357,7 +376,7 @@ function renderCompact(data, metrics, options) {
 }
 
 function renderPlain(data, metrics, options) {
-  const bar = makeBar(metrics.percent, 20, options.ascii, options.color);
+  const bar = options.emoji ? makeEmojiBar(metrics) : makeBar(metrics.percent, 20, options.ascii, options.color);
   return [
     `${data.project.name} · ${data.project.goal} ${metrics.percent.toFixed(0)}%`,
     `[${bar}]`,
@@ -372,6 +391,7 @@ export function renderText(data, metrics, options = {}) {
     width: Math.min(100, Math.max(52, options.width ?? 72)),
     ascii: options.ascii ?? false,
     color: options.color ?? false,
+    emoji: options.emoji ?? false,
   };
   if (normalized.theme === "compact") return renderCompact(data, metrics, normalized);
   if (normalized.theme === "plain") return renderPlain(data, metrics, normalized);
@@ -497,7 +517,7 @@ async function installSkill(destinationRoot, force) {
 }
 
 function helpText() {
-  return `codex-project-progress 0.1.1
+  return `codex-project-progress 0.1.2
 
 Install and render the Track Project Progress Codex skill.
 
@@ -562,11 +582,18 @@ export async function main(argv = process.argv.slice(2)) {
   if (options.json) {
     process.stdout.write(`${JSON.stringify(metricsAsJson(data, metrics, options.ascii ?? false), null, 2)}\n`);
   } else {
+    const colorMode = options.color ?? "auto";
+    const ansiColor = colorEnabled(colorMode);
+    const emojiColor = !(options.ascii ?? false)
+      && colorMode !== "never"
+      && process.env.NO_COLOR === undefined
+      && !ansiColor;
     process.stdout.write(`${renderText(data, metrics, {
       theme: options.theme ?? "box",
       width,
       ascii: options.ascii ?? false,
-      color: colorEnabled(options.color ?? "auto"),
+      color: ansiColor,
+      emoji: emojiColor,
     })}\n`);
   }
   return 0;

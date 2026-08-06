@@ -66,16 +66,16 @@ Lead meaningful updates with the project goal, percentage bar, and a dominant ET
 
 ```text
 <project name> · <goal> <percentage>
-[████████████░░░░░░░░]
+[🟩🟩🟩🟩🟩🟩⬜⬜⬜⬜]
 ETA
-<likely active-work duration>
-<likely range> · <confidence>
+<likely range>
+<expected active-work duration> · <confidence>
 NOW <task currently in progress>
 ```
 
 Keep done definitions, scope details, weighted-point math, milestone breakdowns, and evidence outside the visual unless the user requests them or they are necessary to explain a paused or uncertain ETA. Still maintain that evidence internally so the percentage and ETA remain honest. Label inferred scope or weighting briefly when it materially affects confidence.
 
-Keep a manually rendered bar to 20 cells unless the surface needs ASCII or a narrower width. Prefer the bundled boxed renderer when a ledger exists. Use a milestone table instead of a list only when weights, owners, or blockers materially clarify the estimate.
+Keep a manually rendered bar to 10 colored emoji cells or 20 monochrome text cells. Use green for active progress, amber for low confidence, red when blocked, and blue when complete. Prefer the bundled boxed renderer when a ledger exists. Use a milestone table instead of a list only when weights, owners, or blockers materially clarify the estimate.
 
 In ongoing work, report at the start, after a completed milestone, when progress changes by at least five percentage points, when the ETA changes materially, when blocked, and at completion. Do not emit the same unchanged card after every tool call.
 
