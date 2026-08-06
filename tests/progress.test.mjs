@@ -39,8 +39,8 @@ test("pauses ETA when required work is blocked", async () => {
   data.tasks[2].blocking = true;
   const metrics = calculate(data);
   const output = renderText(data, metrics, { color: false });
-  assert.match(output, /paused by blocker/);
-  assert.match(output, /BLOCK Verify production path/);
+  assert.match(output, /PAUSED/);
+  assert.match(output, /Blocked by Verify production path/);
 });
 
 test("reports complete only when all required tasks are done", async () => {
@@ -54,7 +54,7 @@ test("reports complete only when all required tasks are done", async () => {
   const metrics = calculate(data);
   assert.equal(metrics.percent, 100);
   assert.equal(metrics.likelyMinutes, 0);
-  assert.match(renderText(data, metrics, { color: false }), /ETA\s+complete/);
+  assert.match(renderText(data, metrics, { color: false }), /ETA[\s\S]+COMPLETE/);
 });
 
 test("boxed visualization matches its reviewed snapshot", async () => {
@@ -72,8 +72,9 @@ test("compact ASCII visualization remains readable", async () => {
     ascii: true,
     color: false,
   });
-  assert.match(output, /^PROJECT PROGRESS 71%/);
+  assert.match(output, /^Project Atlas · Ship the public beta 71%/);
   assert.match(output, /#+-+/);
-  assert.match(output, /\[x\] Scope · 100%/);
-  assert.doesNotMatch(output, /Optional dark mode/);
+  assert.match(output, /ETA ~52m ACTIVE WORK/);
+  assert.match(output, /NOW Verify production path/);
+  assert.doesNotMatch(output, /Required goals|DONE|SCOPE/);
 });

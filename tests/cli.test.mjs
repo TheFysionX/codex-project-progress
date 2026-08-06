@@ -31,8 +31,10 @@ test("CLI emits structured JSON", () => {
 test("CLI demo renders without a ledger", () => {
   const result = run(["demo", "--theme", "compact", "--ascii", "--no-color"]);
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /PROJECT PROGRESS 71%/);
-  assert.match(result.stdout, /Required goals:/);
+  assert.match(result.stdout, /Project Atlas · Ship the public beta 71%/);
+  assert.match(result.stdout, /ETA ~52m ACTIVE WORK/);
+  assert.match(result.stdout, /NOW Verify production path/);
+  assert.doesNotMatch(result.stdout, /Required goals:/);
 });
 
 test("CLI rejects unsupported themes", () => {

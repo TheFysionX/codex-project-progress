@@ -62,23 +62,18 @@ Use the default `box` theme for the first assessment, scope changes, blockers, a
 
 ## Report the status
 
-In snapshot mode, or when the renderer cannot run, lead meaningful updates with this compact shape:
+Lead meaningful updates with the project goal, percentage bar, and a dominant ETA block. Show `NOW` as the only secondary status line. In snapshot mode, or when the renderer cannot run, use this compact shape:
 
 ```text
-Project progress
-[████████████░░░░░░░░] 60%
-
-Project: <one-sentence interpretation>
-Done means: <observable acceptance outcome>
-Scope: <inferred or confirmed>
-Completed: <weighted points and key verified result>
-Current: <task now in progress>
-Remaining: <largest required work>
-ETA: <likely active-work duration and range> · <confidence>
-Blocked: <none or blocker>
+<project name> · <goal> <percentage>
+[████████████░░░░░░░░]
+ETA
+<likely active-work duration>
+<likely range> · <confidence>
+NOW <task currently in progress>
 ```
 
-On the first assessment, follow the card with the 3–8 required goals and each goal's status or percentage. Keep the list brief, but make the denominator visible. On later updates, repeat it only when scope or milestone state changes. Label inferred scope or inferred weighting so a precise-looking percentage is not mistaken for a confirmed plan.
+Keep done definitions, scope details, weighted-point math, milestone breakdowns, and evidence outside the visual unless the user requests them or they are necessary to explain a paused or uncertain ETA. Still maintain that evidence internally so the percentage and ETA remain honest. Label inferred scope or weighting briefly when it materially affects confidence.
 
 Keep a manually rendered bar to 20 cells unless the surface needs ASCII or a narrower width. Prefer the bundled boxed renderer when a ledger exists. Use a milestone table instead of a list only when weights, owners, or blockers materially clarify the estimate.
 

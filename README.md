@@ -1,23 +1,17 @@
 # Codex Project Progress
 
-An installable Codex skill and dependency-free NPX tool that turns project evidence into an honest completion percentage, required-goal breakdown, visual progress card, and ETA range.
+An installable Codex skill and dependency-free NPX tool that turns project evidence into an honest completion percentage, ETA-first progress card, and current-work signal.
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────┐
-│ PROJECT PROGRESS                                                 71% │
-│ ████████████████████████████████████████████░░░░░░░░░░░░░░░░░░       │
+│ Project Atlas · Ship the public beta                             71% │
+│ ████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░ │
 ├──────────────────────────────────────────────────────────────────────┤
-│ GOAL  Project Atlas · Ship the public beta                           │
-│ DONE  The production acceptance path passes and release notes are p… │
-│ SCOPE confirmed · 8.5/12 weighted points · 2/4 tasks done            │
-│ NOW   Verify production path                                         │
-│ ETA   ~52m active · 36m–1h 18m · medium confidence                   │
+│ ETA                                                                  │
+│ ~52m ACTIVE WORK                                                     │
+│ Likely range 36m–1h 18m · medium confidence                          │
 ├──────────────────────────────────────────────────────────────────────┤
-│ REQUIRED GOALS                                                       │
-│ ✓ Scope                                                         100% │
-│ ✓ Implementation                                                100% │
-│ ◐ Verification                                                   50% │
-│ ○ Release                                                         0% │
+│ NOW  Verify production path                                          │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 

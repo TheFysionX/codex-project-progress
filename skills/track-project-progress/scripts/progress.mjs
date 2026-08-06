@@ -294,19 +294,23 @@ export function makeBar(percent, width, asciiOnly = false, color = false) {
 }
 
 function etaText(metrics) {
-  if (metrics.percent >= 100) return "complete";
-  if (metrics.blockers.length) {
-    return `paused by blocker · ${formatDuration(metrics.likelyMinutes)} active work remains`;
-  }
-  if (metrics.likelyMinutes === null) return "not enough timing evidence · low confidence";
-  return `~${formatDuration(metrics.likelyMinutes)} active · ${formatDuration(metrics.lowMinutes)}–${formatDuration(metrics.highMinutes)} · ${metrics.confidence}`;
+  return `${etaHeadline(metrics)} · ${etaDetail(metrics)}`;
 }
 
-function goalMarker(goal, asciiOnly, color) {
-  if (goal.blocked) return paint(asciiOnly ? "[!]" : "!", 31, color);
-  if (goal.percent >= 100) return paint(asciiOnly ? "[x]" : "✓", 32, color);
-  if (goal.percent > 0) return paint(asciiOnly ? "[~]" : "◐", 33, color);
-  return paint(asciiOnly ? "[ ]" : "○", 90, color);
+function etaHeadline(metrics) {
+  if (metrics.percent >= 100) return "COMPLETE";
+  if (metrics.blockers.length) return "PAUSED";
+  if (metrics.likelyMinutes === null) return "UNKNOWN";
+  return `~${formatDuration(metrics.likelyMinutes)} ACTIVE WORK`;
+}
+
+function etaDetail(metrics) {
+  if (metrics.percent >= 100) return "All required work is verified";
+  if (metrics.blockers.length) {
+    return `Blocked by ${metrics.blockers.join(", ")} · ${formatDuration(metrics.likelyMinutes)} active work remains`;
+  }
+  if (metrics.likelyMinutes === null) return "Not enough timing evidence · low confidence";
+  return `Likely range ${formatDuration(metrics.lowMinutes)}–${formatDuration(metrics.highMinutes)} · ${metrics.confidence}`;
 }
 
 function renderBox(data, metrics, options) {
@@ -320,73 +324,45 @@ function renderBox(data, metrics, options) {
   const border = (left, right) => left + chars.horizontal.repeat(width - 2) + right;
   const line = (value = "") => `${chars.vertical} ${padVisible(value, contentWidth)} ${chars.vertical}`;
   const separator = border(chars.left, chars.right);
-  const headerLabel = paint("PROJECT PROGRESS", "1;36", color);
   const headerPercent = paint(`${metrics.percent.toFixed(0)}%`, `1;${percentColor(metrics.percent)}`, color);
-  const headerGap = Math.max(1, contentWidth - stripAnsi(headerLabel).length - stripAnsi(headerPercent).length);
-  const progressBarWidth = Math.max(10, contentWidth - 6);
-  const scope = data.project.scope_source ?? "inferred";
+  const titleWidth = contentWidth - stripAnsi(headerPercent).length - 1;
+  const title = paint(fit(`${data.project.name} · ${data.project.goal}`, titleWidth, ascii), "1;36", color);
+  const headerGap = Math.max(1, contentWidth - stripAnsi(title).length - stripAnsi(headerPercent).length);
   const current = metrics.currentTasks.length ? metrics.currentTasks.join(", ") : "none";
-  const blocked = metrics.blockers.length ? metrics.blockers.join(", ") : "none";
   const lines = [
     border(chars.topLeft, chars.topRight),
-    line(headerLabel + " ".repeat(headerGap) + headerPercent),
-    line(makeBar(metrics.percent, progressBarWidth, ascii, color)),
+    line(title + " ".repeat(headerGap) + headerPercent),
+    line(makeBar(metrics.percent, contentWidth, ascii, color)),
     separator,
-    line(`${paint("GOAL", "1", color)}  ${fit(`${data.project.name} · ${data.project.goal}`, contentWidth - 6, ascii)}`),
-    line(`${paint("DONE", "1", color)}  ${fit(data.project.done_definition, contentWidth - 6, ascii)}`),
-    line(`${paint("SCOPE", "1", color)} ${scope} · ${metrics.earnedPoints.toFixed(1).replace(/\.0$/, "")}/${metrics.totalPoints.toFixed(1).replace(/\.0$/, "")} weighted points · ${metrics.completedTasks}/${metrics.requiredTasks} tasks done`),
-    line(`${paint("NOW", "1", color)}   ${fit(current, contentWidth - 6, ascii)}`),
-    line(`${paint("ETA", "1", color)}   ${fit(etaText(metrics), contentWidth - 6, ascii)}`),
+    line(paint("ETA", "1;36", color)),
+    line(paint(fit(etaHeadline(metrics), contentWidth, ascii), "1", color)),
+    line(fit(etaDetail(metrics), contentWidth, ascii)),
+    separator,
+    line(`${paint("NOW", "1", color)}  ${fit(current, contentWidth - 5, ascii)}`),
+    border(chars.bottomLeft, chars.bottomRight),
   ];
-  if (metrics.blockers.length) lines.push(line(`${paint("BLOCK", "1;31", color)} ${fit(blocked, contentWidth - 7, ascii)}`));
-  lines.push(separator, line(paint("REQUIRED GOALS", "1;36", color)));
-
-  for (const goal of metrics.goals) {
-    const marker = goalMarker(goal, ascii, color);
-    const markerWidth = stripAnsi(marker).length;
-    const percent = `${goal.percent.toFixed(0)}%`;
-    const nameWidth = contentWidth - markerWidth - percent.length - 2;
-    const name = padVisible(fit(goal.name, nameWidth, ascii), nameWidth);
-    lines.push(line(`${marker} ${name} ${percent}`));
-  }
-  lines.push(border(chars.bottomLeft, chars.bottomRight));
   return lines.join("\n");
 }
 
 function renderCompact(data, metrics, options) {
   const barWidth = Math.max(10, options.width - 20);
-  const lines = [
-    `${paint("PROJECT PROGRESS", "1;36", options.color)} ${paint(`${metrics.percent.toFixed(0)}%`, `1;${percentColor(metrics.percent)}`, options.color)}`,
+  const title = `${data.project.name} · ${data.project.goal}`;
+  return [
+    `${paint(title, "1;36", options.color)} ${paint(`${metrics.percent.toFixed(0)}%`, `1;${percentColor(metrics.percent)}`, options.color)}`,
     makeBar(metrics.percent, barWidth, options.ascii, options.color),
-    `${data.project.name} · ${data.project.goal}`,
-    `ETA ${etaText(metrics)}`,
-    "Required goals:",
-  ];
-  for (const goal of metrics.goals) {
-    lines.push(`${goalMarker(goal, options.ascii, options.color)} ${goal.name} · ${goal.percent.toFixed(0)}%`);
-  }
-  return lines.join("\n");
+    `${paint("ETA", "1;36", options.color)} ${paint(etaHeadline(metrics), "1", options.color)}`,
+    `    ${etaDetail(metrics)}`,
+    `${paint("NOW", "1", options.color)} ${metrics.currentTasks.join(", ") || "none"}`,
+  ].join("\n");
 }
 
 function renderPlain(data, metrics, options) {
   const bar = makeBar(metrics.percent, 20, options.ascii, options.color);
-  const left = options.ascii ? "[" : "[";
-  const right = options.ascii ? "]" : "]";
   return [
-    "Project progress",
-    `${left}${bar}${right} ${metrics.percent.toFixed(0)}%`,
-    "",
-    `Project: ${data.project.name} — ${data.project.goal}`,
-    `Done means: ${data.project.done_definition}`,
-    `Scope: ${data.project.scope_source ?? "inferred"}`,
-    `Completed: ${metrics.earnedPoints}/${metrics.totalPoints} weighted points · ${metrics.completedTasks}/${metrics.requiredTasks} required tasks done`,
-    `Current: ${metrics.currentTasks.join(", ") || "none"}`,
+    `${data.project.name} · ${data.project.goal} ${metrics.percent.toFixed(0)}%`,
+    `[${bar}]`,
     `ETA: ${etaText(metrics)}`,
-    `Basis: ${metrics.estimateBasis} · ${formatDuration(metrics.elapsedMinutes)} active work observed`,
-    `Blocked: ${metrics.blockers.join(", ") || "none"}`,
-    "",
-    "Required goals:",
-    ...metrics.goals.map((goal) => `${goalMarker(goal, options.ascii, options.color)} ${goal.name} (${goal.percent.toFixed(0)}%)`),
+    `NOW: ${metrics.currentTasks.join(", ") || "none"}`,
   ].join("\n");
 }
 
@@ -521,7 +497,7 @@ async function installSkill(destinationRoot, force) {
 }
 
 function helpText() {
-  return `codex-project-progress 0.1.0
+  return `codex-project-progress 0.1.1
 
 Install and render the Track Project Progress Codex skill.
 
