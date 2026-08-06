@@ -313,23 +313,12 @@ function makeEmojiBar(metrics, width = 10) {
 }
 
 function etaText(metrics) {
-  return `${etaHeadline(metrics)} · ${etaDetail(metrics)}`;
-}
-
-function etaHeadline(metrics) {
   if (metrics.percent >= 100) return "COMPLETE";
-  if (metrics.blockers.length) return "PAUSED";
-  if (metrics.likelyMinutes === null) return "NO RELIABLE RANGE";
-  return `${formatDuration(metrics.lowMinutes)}–${formatDuration(metrics.highMinutes)} LIKELY RANGE`;
-}
-
-function etaDetail(metrics) {
-  if (metrics.percent >= 100) return "All required work is verified";
   if (metrics.blockers.length) {
-    return `Blocked by ${metrics.blockers.join(", ")} · ${formatDuration(metrics.likelyMinutes)} active work remains`;
+    return `PAUSED · ~${formatDuration(metrics.likelyMinutes)} remains · blocked by ${metrics.blockers.join(", ")}`;
   }
-  if (metrics.likelyMinutes === null) return "Not enough timing evidence · low confidence";
-  return `~${formatDuration(metrics.likelyMinutes)} active work · ${metrics.confidence}`;
+  if (metrics.likelyMinutes === null) return "Unknown · low confidence";
+  return `~${formatDuration(metrics.likelyMinutes)} (${formatDuration(metrics.lowMinutes)}–${formatDuration(metrics.highMinutes)}) · ${metrics.confidence}`;
 }
 
 function renderBox(data, metrics, options) {
@@ -354,8 +343,7 @@ function renderBox(data, metrics, options) {
     line(options.emoji ? makeEmojiBar(metrics) : makeBar(metrics.percent, contentWidth, ascii, color)),
     separator,
     line(paint("ETA", "1;36", color)),
-    line(paint(fit(etaHeadline(metrics), contentWidth, ascii), "1", color)),
-    line(fit(etaDetail(metrics), contentWidth, ascii)),
+    line(paint(fit(etaText(metrics), contentWidth, ascii), "1", color)),
     separator,
     line(`${paint("NOW", "1", color)}  ${fit(current, contentWidth - 5, ascii)}`),
     border(chars.bottomLeft, chars.bottomRight),
@@ -369,8 +357,7 @@ function renderCompact(data, metrics, options) {
   return [
     `${paint(title, "1;36", options.color)} ${paint(`${metrics.percent.toFixed(0)}%`, `1;${percentColor(metrics.percent)}`, options.color)}`,
     options.emoji ? makeEmojiBar(metrics) : makeBar(metrics.percent, barWidth, options.ascii, options.color),
-    `${paint("ETA", "1;36", options.color)} ${paint(etaHeadline(metrics), "1", options.color)}`,
-    `    ${etaDetail(metrics)}`,
+    `${paint("ETA", "1;36", options.color)} ${paint(etaText(metrics), "1", options.color)}`,
     `${paint("NOW", "1", options.color)} ${metrics.currentTasks.join(", ") || "none"}`,
   ].join("\n");
 }
@@ -517,7 +504,7 @@ async function installSkill(destinationRoot, force) {
 }
 
 function helpText() {
-  return `codex-project-progress 0.1.2
+  return `codex-project-progress 0.1.3
 
 Install and render the Track Project Progress Codex skill.
 

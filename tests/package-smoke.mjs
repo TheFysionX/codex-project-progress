@@ -24,6 +24,6 @@ for (const required of [
 }
 
 assert.equal(report.name, "codex-project-progress");
-assert.equal(report.version, "0.1.2");
+assert.equal(report.version, "0.1.3");
 assert.ok(![...files].some((path) => path.includes("__pycache__") || path.endsWith(".pyc")));
 process.stdout.write(`Package smoke test passed: ${report.filename} (${report.size} bytes)\n`);

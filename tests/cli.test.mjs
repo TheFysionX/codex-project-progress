@@ -35,8 +35,7 @@ test("CLI demo renders without a ledger", () => {
   const result = run(["demo", "--theme", "compact", "--ascii", "--no-color"]);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Project Atlas · Ship the public beta 71%/);
-  assert.match(result.stdout, /ETA 36m–1h 18m LIKELY RANGE/);
-  assert.match(result.stdout, /~52m active work · medium confidence/);
+  assert.match(result.stdout, /ETA ~52m \(36m–1h 18m\) · medium confidence/);
   assert.match(result.stdout, /NOW Verify production path/);
   assert.doesNotMatch(result.stdout, /Required goals:/);
 });

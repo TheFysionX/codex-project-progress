@@ -40,7 +40,7 @@ test("pauses ETA when required work is blocked", async () => {
   const metrics = calculate(data);
   const output = renderText(data, metrics, { color: false });
   assert.match(output, /PAUSED/);
-  assert.match(output, /Blocked by Verify production path/);
+  assert.match(output, /blocked by Verify production path/);
 });
 
 test("reports complete only when all required tasks are done", async () => {
@@ -92,8 +92,7 @@ test("compact ASCII visualization remains readable", async () => {
   });
   assert.match(output, /^Project Atlas · Ship the public beta 71%/);
   assert.match(output, /#+-+/);
-  assert.match(output, /ETA 36m–1h 18m LIKELY RANGE/);
-  assert.match(output, /~52m active work · medium confidence/);
+  assert.match(output, /ETA ~52m \(36m–1h 18m\) · medium confidence/);
   assert.match(output, /NOW Verify production path/);
   assert.doesNotMatch(output, /Required goals|DONE|SCOPE/);
 });

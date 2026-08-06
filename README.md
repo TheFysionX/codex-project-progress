@@ -8,8 +8,7 @@ An installable Codex skill and dependency-free NPX tool that turns project evide
 │ 🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜                                                 │
 ├──────────────────────────────────────────────────────────────────────┤
 │ ETA                                                                  │
-│ 36m–1h 18m LIKELY RANGE                                              │
-│ ~52m active work · medium confidence                                 │
+│ ~52m (36m–1h 18m) · medium confidence                                │
 ├──────────────────────────────────────────────────────────────────────┤
 │ NOW  Verify production path                                          │
 └──────────────────────────────────────────────────────────────────────┘
@@ -87,7 +86,7 @@ You can also copy `skills/track-project-progress` to `~/.agents/skills/track-pro
 
 The percentage uses earned weighted points, not a raw task count. Required implementation, verification, deployment, and user acceptance can carry different weights. A task only reaches done when its stated evidence exists.
 
-The ETA represents remaining active work. It excludes time waiting for users, approvals, external systems, or idle processes. When enough history exists, it blends bottom-up task estimates with observed time per earned weighted point and widens the range when evidence is sparse or uncertain. Blocking dependencies pause the ETA rather than producing a fictional finish time.
+The ETA represents the work time required to finish. It excludes time waiting for users, approvals, external systems, or idle processes. When enough history exists, it blends bottom-up task estimates with observed time per earned weighted point and widens the parenthesized range when evidence is sparse or uncertain. Blocking dependencies pause the ETA rather than producing a fictional finish time.
 
 ## Test and develop
 

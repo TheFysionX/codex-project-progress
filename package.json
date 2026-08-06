@@ -1,6 +1,6 @@
 {
   "name": "codex-project-progress",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Evidence-weighted project progress bars and ETA ranges for Codex.",
   "type": "module",
   "bin": {

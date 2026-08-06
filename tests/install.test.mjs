@@ -21,7 +21,8 @@ test("installer copies the complete skill and backs up replacements", async () =
   const skillText = await readFile(join(installed, "SKILL.md"), "utf8");
   const scriptText = await readFile(join(installed, "scripts", "progress.mjs"), "utf8");
   assert.match(skillText, /name: track-project-progress/);
-  assert.match(scriptText, /LIKELY RANGE/);
+  assert.match(scriptText, /metrics\.lowMinutes/);
+  assert.match(scriptText, /metrics\.confidence/);
   assert.match(scriptText, /makeEmojiBar/);
   assert.match(scriptText, /NOW/);
 

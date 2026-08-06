@@ -67,9 +67,7 @@ Lead meaningful updates with the project goal, percentage bar, and a dominant ET
 ```text
 <project name> · <goal> <percentage>
 [🟩🟩🟩🟩🟩🟩⬜⬜⬜⬜]
-ETA
-<likely range>
-<expected active-work duration> · <confidence>
+ETA <expected duration> (<uncertainty range>) · <confidence>
 NOW <task currently in progress>
 ```
 
@@ -84,5 +82,5 @@ In ongoing work, report at the start, after a completed milestone, when progress
 - Show `100%` only when every required task meets the observable definition of done.
 - If implementation is finished but verification is pending, keep verification as remaining weighted work.
 - Label all unverified project interpretations and assumptions.
-- Prefer an honest range such as `~2h active work (1h 20m–3h, medium confidence)` over a precise timestamp unsupported by work schedules.
+- Prefer an honest ETA such as `~2h (1h 20m–3h) · medium confidence` over a precise timestamp unsupported by work schedules.
 - At completion, replace the ETA with `complete` and summarize the evidence that closed the final requirement.
