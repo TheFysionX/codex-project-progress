@@ -54,15 +54,15 @@ Read [references/ledger-format.md](references/ledger-format.md) before creating 
 For tracking mode, validate and render with:
 
 ```text
-python <skill-directory>/scripts/progress.py validate .codex/project-progress.json
-python <skill-directory>/scripts/progress.py render .codex/project-progress.json
+node <skill-directory>/scripts/progress.mjs validate .codex/project-progress.json
+node <skill-directory>/scripts/progress.mjs render .codex/project-progress.json
 ```
 
-Use `--ascii` if Unicode blocks do not render correctly and `--json` when another tool needs structured output.
+Use the default `box` theme for the first assessment, scope changes, blockers, and milestone completions. Use `--theme compact` for shorter ongoing updates. Use `--ascii` if Unicode blocks do not render correctly, `--no-color` for captured logs, and `--json` when another tool needs structured output.
 
 ## Report the status
 
-Lead meaningful updates with this compact shape:
+In snapshot mode, or when the renderer cannot run, lead meaningful updates with this compact shape:
 
 ```text
 Project progress
@@ -80,7 +80,7 @@ Blocked: <none or blocker>
 
 On the first assessment, follow the card with the 3–8 required goals and each goal's status or percentage. Keep the list brief, but make the denominator visible. On later updates, repeat it only when scope or milestone state changes. Label inferred scope or inferred weighting so a precise-looking percentage is not mistaken for a confirmed plan.
 
-Keep the bar to 20 cells unless the surface needs ASCII or a narrower width. Use a milestone table instead of a list only when weights, owners, or blockers materially clarify the estimate.
+Keep a manually rendered bar to 20 cells unless the surface needs ASCII or a narrower width. Prefer the bundled boxed renderer when a ledger exists. Use a milestone table instead of a list only when weights, owners, or blockers materially clarify the estimate.
 
 In ongoing work, report at the start, after a completed milestone, when progress changes by at least five percentage points, when the ETA changes materially, when blocked, and at completion. Do not emit the same unchanged card after every tool call.
 

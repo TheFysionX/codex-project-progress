@@ -1,0 +1,43 @@
+{
+  "name": "codex-project-progress",
+  "version": "0.1.0",
+  "description": "Evidence-weighted project progress bars and ETA ranges for Codex.",
+  "type": "module",
+  "bin": {
+    "codex-project-progress": "./skills/track-project-progress/scripts/progress.mjs"
+  },
+  "files": [
+    "skills/track-project-progress",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "test:package": "node ./tests/package-smoke.mjs",
+    "prepublishOnly": "npm test && npm run test:package"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TheFysionX/codex-project-progress.git"
+  },
+  "bugs": {
+    "url": "https://github.com/TheFysionX/codex-project-progress/issues"
+  },
+  "homepage": "https://github.com/TheFysionX/codex-project-progress#readme",
+  "keywords": [
+    "codex",
+    "agent-skill",
+    "progress-bar",
+    "eta",
+    "npx",
+    "project-management"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "author": "TheFysionX",
+  "publishConfig": {
+    "access": "public"
+  }
+}

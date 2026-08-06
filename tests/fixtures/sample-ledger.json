@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "project": {
+    "name": "Project Atlas",
+    "goal": "Ship the public beta",
+    "done_definition": "The production acceptance path passes and release notes are published",
+    "scope_source": "confirmed"
+  },
+  "tasks": [
+    {
+      "id": "scope",
+      "title": "Confirm scope",
+      "milestone": "Scope",
+      "required": true,
+      "weight": 2,
+      "status": "done",
+      "progress": 1,
+      "elapsed_minutes": 20,
+      "remaining_minutes": 0,
+      "uncertainty": "low",
+      "blocking": false,
+      "evidence": ["Acceptance scope confirmed"]
+    },
+    {
+      "id": "build",
+      "title": "Build core workflow",
+      "milestone": "Implementation",
+      "required": true,
+      "weight": 5,
+      "status": "done",
+      "progress": 1,
+      "elapsed_minutes": 70,
+      "remaining_minutes": 0,
+      "uncertainty": "low",
+      "blocking": false,
+      "evidence": ["Focused tests pass"]
+    },
+    {
+      "id": "verify",
+      "title": "Verify production path",
+      "milestone": "Verification",
+      "required": true,
+      "weight": 3,
+      "status": "in_progress",
+      "progress": 0.5,
+      "elapsed_minutes": 20,
+      "remaining_minutes": 35,
+      "uncertainty": "medium",
+      "blocking": false,
+      "evidence": ["Staging path verified"]
+    },
+    {
+      "id": "release",
+      "title": "Publish release",
+      "milestone": "Release",
+      "required": true,
+      "weight": 2,
+      "status": "not_started",
+      "progress": 0,
+      "elapsed_minutes": 0,
+      "remaining_minutes": 20,
+      "uncertainty": "medium",
+      "blocking": false,
+      "evidence": []
+    },
+    {
+      "id": "dark-mode",
+      "title": "Optional dark mode",
+      "milestone": "Stretch",
+      "required": false,
+      "weight": 8,
+      "status": "not_started",
+      "progress": 0,
+      "elapsed_minutes": 0,
+      "remaining_minutes": 180,
+      "uncertainty": "high",
+      "blocking": false,
+      "evidence": []
+    }
+  ]
+}

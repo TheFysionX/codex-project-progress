@@ -1,76 +1,111 @@
 # Codex Project Progress
 
-An installable Codex skill that turns project evidence into an honest completion percentage, a visual progress bar, and an ETA range.
+An installable Codex skill and dependency-free NPX tool that turns project evidence into an honest completion percentage, required-goal breakdown, visual progress card, and ETA range.
 
 ```text
-Project progress
-[████████████░░░░░░░░] 60%
-
-Project: Partner portal — ship the approved login flow
-Done means: the production login path passes the user-visible acceptance test
-Scope: confirmed
-Completed: 12/20 weighted points · 4/7 required tasks done
-Current: Verify production behavior
-ETA: ~1h 40m active work (1h 10m–2h 30m) · medium confidence
-Blocked: none
-
-Required goals: ✓ scope · ✓ implementation · ◐ verification · ○ production acceptance
+┌──────────────────────────────────────────────────────────────────────┐
+│ PROJECT PROGRESS                                                 71% │
+│ ████████████████████████████████████████████░░░░░░░░░░░░░░░░░░       │
+├──────────────────────────────────────────────────────────────────────┤
+│ GOAL  Project Atlas · Ship the public beta                           │
+│ DONE  The production acceptance path passes and release notes are p… │
+│ SCOPE confirmed · 8.5/12 weighted points · 2/4 tasks done            │
+│ NOW   Verify production path                                         │
+│ ETA   ~52m active · 36m–1h 18m · medium confidence                   │
+├──────────────────────────────────────────────────────────────────────┤
+│ REQUIRED GOALS                                                       │
+│ ✓ Scope                                                         100% │
+│ ✓ Implementation                                                100% │
+│ ◐ Verification                                                   50% │
+│ ○ Release                                                         0% │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-The skill first infers the project and its observable definition of done. It then breaks required scope into weighted tasks, checks completion evidence, measures active work separately from waiting, and blends bottom-up estimates with observed throughput. Early estimates stay deliberately wide; blockers pause the ETA instead of producing false precision.
+## Install with NPX
 
-## Install with Codex
+```bash
+npx codex-project-progress install
+```
 
-Ask Codex to install the skill from this repository:
+This installs `track-project-progress` in `~/.agents/skills`, the user-level skill location documented for Codex. Codex detects new skills automatically; restart it if the skill does not appear.
+
+Try the renderer without installing anything:
+
+```bash
+npx codex-project-progress demo
+```
+
+## Use in Codex
+
+Natural requests can invoke the skill:
+
+```text
+How far through this project are we? Show the required goals, percentage, and ETA.
+```
+
+```text
+Keep the project progress card updated while you finish this task.
+```
+
+Or invoke it explicitly:
+
+```text
+Use $track-project-progress to reassess this project from the current evidence.
+```
+
+One-off assessments are read-only. Ongoing tracking uses `.codex/project-progress.json` in the relevant project.
+
+## CLI
+
+```bash
+# Install the skill
+npx codex-project-progress install
+
+# Render a ledger with the boxed theme
+npx codex-project-progress render .codex/project-progress.json
+
+# Use the shorter update format
+npx codex-project-progress render .codex/project-progress.json --theme compact
+
+# Work in terminals without Unicode support
+npx codex-project-progress render .codex/project-progress.json --ascii --no-color
+
+# Return structured calculations
+npx codex-project-progress render .codex/project-progress.json --json
+
+# Validate a ledger
+npx codex-project-progress validate .codex/project-progress.json
+```
+
+Available themes are `box`, `compact`, and `plain`. Color is automatic in interactive terminals and can be controlled with `--color always`, `--color never`, or `--no-color`.
+
+## Install directly from GitHub
+
+Ask Codex:
 
 ```text
 Use $skill-installer to install https://github.com/TheFysionX/codex-project-progress/tree/main/skills/track-project-progress
 ```
 
-The skill becomes available on the next Codex turn.
+You can also copy `skills/track-project-progress` to `~/.agents/skills/track-project-progress`.
 
-For a manual install, copy `skills/track-project-progress` into `~/.codex/skills/track-project-progress` (macOS/Linux) or `%USERPROFILE%\.codex\skills\track-project-progress` (Windows).
+## How the estimate works
 
-## Use
+The percentage uses earned weighted points, not a raw task count. Required implementation, verification, deployment, and user acceptance can carry different weights. A task only reaches done when its stated evidence exists.
 
-Natural requests trigger the skill, including:
+The ETA represents remaining active work. It excludes time waiting for users, approvals, external systems, or idle processes. When enough history exists, it blends bottom-up task estimates with observed time per earned weighted point and widens the range when evidence is sparse or uncertain. Blocking dependencies pause the ETA rather than producing a fictional finish time.
 
-```text
-How far through this project are we? Show me a percentage and ETA.
+## Test and develop
+
+The package uses Node's built-in test runner and has no runtime dependencies.
+
+```bash
+npm test
+npm run test:package
+npm pack --dry-run
 ```
 
-```text
-Keep a progress bar and time estimate updated while you finish this task.
-```
-
-```text
-Use $track-project-progress to reassess the remaining work from the current repo evidence.
-```
-
-One-off requests are read-only. Ongoing tracking uses `.codex/project-progress.json` in the relevant project and the bundled standard-library Python renderer.
-
-## What the percentage means
-
-The bar uses earned weighted points, not the raw number of checked boxes. Required implementation, verification, deployment, and user acceptance can carry different weights. A task only reaches done when its stated evidence exists, and a clarified scope change is allowed to move the percentage backward with an explanation.
-
-The ETA is remaining active-work time. It excludes time waiting for users, approvals, or external systems. When enough evidence exists, it blends per-task estimates with the pace observed so far and reports a low-, medium-, or high-confidence range.
-
-## Repository layout
-
-```text
-skills/track-project-progress/  Installable Codex skill
-tests/                          Renderer and calculation tests
-```
-
-## Development
-
-Run the test suite with Python 3.10 or newer:
-
-```text
-python -m unittest discover -s tests -v
-```
-
-The runtime script has no third-party dependencies.
+The suite covers weighted progress, optional-scope exclusion, evidence requirements, uncertainty ranges, blockers, completed projects, boxed/compact/ASCII rendering, CLI JSON output, and installation into a clean temporary skill directory.
 
 ## License
 

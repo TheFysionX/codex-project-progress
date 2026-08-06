@@ -78,6 +78,8 @@ The displayed ranges intentionally widen uncertainty:
 
 These are communication guardrails, not statistical confidence intervals.
 
+Rendered durations use eight active-work hours per displayed `d`. They are effort durations, not calendar-day promises.
+
 ## Scope changes
 
 Before changing required tasks or weights, render or record the prior percentage. After the update, report:
