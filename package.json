@@ -4,7 +4,7 @@
   "description": "Evidence-weighted project progress bars and ETA ranges for Codex.",
   "type": "module",
   "bin": {
-    "codex-project-progress": "./skills/track-project-progress/scripts/progress.mjs"
+    "codex-project-progress": "skills/track-project-progress/scripts/progress.mjs"
   },
   "files": [
     "skills/track-project-progress",
