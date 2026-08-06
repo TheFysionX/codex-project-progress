@@ -1,0 +1,93 @@
+---
+name: track-project-progress
+description: Assess and track a project's evidence-weighted completion percentage, visual progress bar, completed and remaining work, elapsed effort, blockers, and ETA range. Use when a user asks how far through a project or task Codex is, requests a percent complete or progress bar, asks how much work or time remains, wants an ETA, or asks Codex to keep progress visible during ongoing work.
+---
+
+# Track Project Progress
+
+Give an honest, evidence-backed view of what the project is, what “done” requires, how much required work is complete, and how long the remainder may take.
+
+## Choose the mode
+
+- Use **snapshot mode** for a one-off progress or ETA question. Inspect the available evidence and report inline without creating files.
+- Use **tracking mode** when the user asks to keep, maintain, or repeatedly update progress. Persist the ledger at `.codex/project-progress.json` in the relevant project root.
+- Reuse an existing ledger when present, but verify it against current files, tests, logs, tickets, and the user's latest requirement before trusting it.
+
+Do not mutate project files for a read-only status request. Follow all workspace instructions before creating or editing a ledger.
+
+## Build the project model
+
+1. State the project in one sentence.
+2. State the definition of done as an observable outcome.
+3. Decompose required scope into 3–8 milestones and concrete tasks. Exclude optional improvements from the denominator unless the user includes them in scope.
+4. Assign relative weights from `1, 2, 3, 5, 8` based on effort, uncertainty, and consequence. Do not treat every task as equal.
+5. Assign task progress from verifiable sub-results. Require evidence for `done`; use `0`, `0.25`, `0.5`, or `0.75` for partially complete work unless a finer value is justified by explicit subtasks.
+6. Record elapsed active-work minutes, remaining active-work minutes, uncertainty, blockers, and short evidence notes when that information exists.
+
+Treat the user's latest clarified requirement as the completion contract. If scope changes, recalculate the denominator and explicitly report the old percentage, new percentage, and reason. Never freeze or inflate the percentage to avoid a visible regression.
+
+## Judge evidence
+
+Prefer evidence in this order:
+
+1. User-observed acceptance or production/live verification when that is the stated bar.
+2. Passing acceptance tests or direct runtime evidence.
+3. Passing focused tests plus inspected implementation.
+4. Source changes without runtime verification.
+5. Inference or intent only.
+
+Do not mark a required task complete because work was attempted, code exists, or a nearby case passed. A required obligation present upstream but missing downstream remains incomplete.
+
+## Calculate progress and ETA
+
+Calculate completion as earned weighted points divided by total required weighted points. Do not use raw task counts when weights differ.
+
+Estimate remaining active-work time from both:
+
+- bottom-up estimates for incomplete tasks; and
+- observed throughput from elapsed active time per earned weighted point.
+
+Blend the two only when both have evidence. Early estimates must have wider ranges and low confidence. Exclude time spent waiting for the user, approvals, external systems, or unattended processes from active-work throughput. If a required task has an unresolved blocking dependency, show the ETA as paused or blocked rather than inventing a finish time.
+
+Read [references/ledger-format.md](references/ledger-format.md) before creating or repairing a ledger, changing the calculation, or explaining the detailed math.
+
+For tracking mode, validate and render with:
+
+```text
+python <skill-directory>/scripts/progress.py validate .codex/project-progress.json
+python <skill-directory>/scripts/progress.py render .codex/project-progress.json
+```
+
+Use `--ascii` if Unicode blocks do not render correctly and `--json` when another tool needs structured output.
+
+## Report the status
+
+Lead meaningful updates with this compact shape:
+
+```text
+Project progress
+[████████████░░░░░░░░] 60%
+
+Project: <one-sentence interpretation>
+Done means: <observable acceptance outcome>
+Scope: <inferred or confirmed>
+Completed: <weighted points and key verified result>
+Current: <task now in progress>
+Remaining: <largest required work>
+ETA: <likely active-work duration and range> · <confidence>
+Blocked: <none or blocker>
+```
+
+On the first assessment, follow the card with the 3–8 required goals and each goal's status or percentage. Keep the list brief, but make the denominator visible. On later updates, repeat it only when scope or milestone state changes. Label inferred scope or inferred weighting so a precise-looking percentage is not mistaken for a confirmed plan.
+
+Keep the bar to 20 cells unless the surface needs ASCII or a narrower width. Use a milestone table instead of a list only when weights, owners, or blockers materially clarify the estimate.
+
+In ongoing work, report at the start, after a completed milestone, when progress changes by at least five percentage points, when the ETA changes materially, when blocked, and at completion. Do not emit the same unchanged card after every tool call.
+
+## Completion rules
+
+- Show `100%` only when every required task meets the observable definition of done.
+- If implementation is finished but verification is pending, keep verification as remaining weighted work.
+- Label all unverified project interpretations and assumptions.
+- Prefer an honest range such as `~2h active work (1h 20m–3h, medium confidence)` over a precise timestamp unsupported by work schedules.
+- At completion, replace the ETA with `complete` and summarize the evidence that closed the final requirement.

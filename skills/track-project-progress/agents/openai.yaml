@@ -1,0 +1,7 @@
+interface:
+  display_name: "Project Progress"
+  short_description: "Evidence-weighted progress bars and ETA ranges"
+  default_prompt: "Use $track-project-progress to assess this project, show a completion bar, and estimate the remaining time."
+
+policy:
+  allow_implicit_invocation: true
