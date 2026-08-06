@@ -41,6 +41,20 @@ test("CLI demo renders without a ledger", () => {
   assert.doesNotMatch(result.stdout, /Required goals:/);
 });
 
+test("CLI wraps chat output in a fenced text block", () => {
+  const result = run(["demo", "--markdown"]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^```text\n┌/u);
+  assert.match(result.stdout, /┘\n```\n$/u);
+  assert.doesNotMatch(result.stdout, /\u001b\[/);
+});
+
+test("CLI keeps structured JSON separate from markdown presentation", () => {
+  const result = run(["demo", "--json", "--markdown"]);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /either --json or --markdown/);
+});
+
 test("CLI rejects an unknown install target", () => {
   const result = run(["install", "--target", "everything"]);
   assert.equal(result.status, 2);

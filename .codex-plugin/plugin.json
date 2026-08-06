@@ -1,6 +1,6 @@
 {
   "name": "codex-project-progress",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Show an evidence-backed completion bar with one prominent ETA and the work happening now.",
   "author": {
     "name": "TheFysionX",

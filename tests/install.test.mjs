@@ -33,8 +33,9 @@ test("installer copies the complete skill and backs up replacements", async () =
   const replacement = run(["install", "--dest", destination, "--force"]);
   assert.equal(replacement.status, 0, replacement.stderr);
   assert.match(replacement.stdout, /Previous installation backed up/);
-  const entries = await readdir(destination);
-  assert.ok(entries.some((name) => name.startsWith("track-project-progress.backup-")));
+  const entries = await readdir(join(destination, "..", "skill-backups"));
+  assert.ok(entries.some((name) => name.startsWith("track-project-progress-")));
+  assert.deepEqual(await readdir(destination), ["track-project-progress"]);
 });
 
 test("default installer targets both OpenAI clients and Claude Code", async () => {

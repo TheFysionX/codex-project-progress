@@ -1,6 +1,6 @@
 {
   "name": "codex-project-progress",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "ETA-first project progress bars for ChatGPT, Codex, Claude Code, and NPX.",
   "type": "module",
   "bin": {

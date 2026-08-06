@@ -58,6 +58,8 @@ Or invoke the skill directly:
 
 One-off assessments are read-only. Ongoing tracking uses the host-neutral `.project-progress.json` ledger in the project root. Existing `.codex/project-progress.json` ledgers remain supported.
 
+Chat cards are always emitted inside a fenced `text` block. This keeps the borders, spacing, ETA hierarchy, and progress bar together in a monospaced bubble instead of allowing the chat renderer to flatten them into ordinary text.
+
 ## Client support
 
 | Surface | Supported path |
@@ -88,6 +90,7 @@ Render or validate a tracked project:
 ```bash
 npx codex-project-progress render .project-progress.json
 npx codex-project-progress render .project-progress.json --theme compact
+npx codex-project-progress render .project-progress.json --markdown
 npx codex-project-progress render .project-progress.json --ascii --no-color
 npx codex-project-progress render .project-progress.json --json
 npx codex-project-progress validate .project-progress.json

@@ -55,14 +55,18 @@ For tracking mode, validate and render with:
 
 ```text
 node <skill-directory>/scripts/progress.mjs validate .project-progress.json
-node <skill-directory>/scripts/progress.mjs render .project-progress.json
+node <skill-directory>/scripts/progress.mjs render .project-progress.json --markdown
 ```
 
 Use the default `box` theme for the first assessment, scope changes, blockers, and milestone completions. Use `--theme compact` for shorter ongoing updates. Use `--ascii` if Unicode blocks do not render correctly, `--no-color` for captured logs, and `--json` when another tool needs structured output.
 
 ## Report the status
 
-Lead meaningful updates with the goal, a dominant ETA block, the percentage bar, and `NOW` as the only secondary status line. Put the ETA before the bar. Do not add separate labels for likely range, active work, milestones, or completed work. In snapshot mode, or when the renderer cannot run, use this compact shape:
+Lead meaningful updates with the goal, a dominant ETA block, the percentage bar, and `NOW` as the only secondary status line. Put the ETA before the bar. Do not add separate labels for likely range, active work, milestones, or completed work.
+
+In every chat surface, put the entire card in its own fenced `text` code block so it renders as one contained, monospaced unit. Never emit the card as ordinary Markdown paragraphs, even for compact updates. When the renderer can run, use `--markdown` and paste its stdout verbatim. Keep any explanation outside the fence. Omit `--markdown` only when a human runs the command directly in a terminal.
+
+In snapshot mode, or when the renderer cannot run, manually use this fenced shape:
 
 ```text
 GOAL  <goal>

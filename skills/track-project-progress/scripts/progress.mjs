@@ -467,7 +467,7 @@ function parseArgs(argv) {
       continue;
     }
     const [key, inline] = value.slice(2).split("=", 2);
-    if (["ascii", "json", "force", "help"].includes(key)) {
+    if (["ascii", "json", "markdown", "force", "help"].includes(key)) {
       options[key] = true;
     } else if (key === "no-color") {
       options.color = "never";
@@ -515,7 +515,9 @@ async function installSkill(destinationRoot, force) {
   let backup = null;
   if (await pathExists(target)) {
     if (!force) throw new Error(`skill already exists: ${target}\nRun again with --force to replace it with a recoverable backup.`);
-    backup = `${target}.backup-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+    const backupRoot = resolve(dirname(destinationRoot), "skill-backups");
+    await mkdir(backupRoot, { recursive: true });
+    backup = resolve(backupRoot, `track-project-progress-${new Date().toISOString().replace(/[:.]/g, "-")}`);
     await rename(target, backup);
   }
   await cp(SKILL_DIRECTORY, target, { recursive: true, errorOnExist: true });
@@ -523,7 +525,7 @@ async function installSkill(destinationRoot, force) {
 }
 
 function helpText() {
-  return `codex-project-progress 0.2.0
+  return `codex-project-progress 0.2.1
 
 Install and render the Track Project Progress agent skill.
 
@@ -540,6 +542,7 @@ Options:
   --dest <skills-dir>     Install to one custom skills directory
   --force                 Back up and replace an existing installed skill
   --json                  Return structured render output
+  --markdown              Wrap the card in a fenced text block for chat
   --no-color              Alias for --color never
   --theme <name>          box (default), compact, or plain
   --target <client>       all (default), openai, codex, chatgpt, claude,
@@ -603,22 +606,25 @@ export async function main(argv = process.argv.slice(2)) {
     throw new Error("--width must be an integer between 52 and 100");
   }
   const metrics = calculate(data);
+  if (options.json && options.markdown) throw new Error("use either --json or --markdown, not both");
   if (options.json) {
     process.stdout.write(`${JSON.stringify(metricsAsJson(data, metrics, options.ascii ?? false), null, 2)}\n`);
   } else {
     const colorMode = options.color ?? "auto";
-    const ansiColor = colorEnabled(colorMode);
+    const ansiColor = options.markdown ? false : colorEnabled(colorMode);
     const emojiColor = !(options.ascii ?? false)
       && colorMode !== "never"
       && process.env.NO_COLOR === undefined
       && !ansiColor;
-    process.stdout.write(`${renderText(data, metrics, {
+    const rendered = renderText(data, metrics, {
       theme: options.theme ?? "box",
       width,
       ascii: options.ascii ?? false,
       color: ansiColor,
       emoji: emojiColor,
-    })}\n`);
+    });
+    const output = options.markdown ? `\`\`\`text\n${rendered}\n\`\`\`` : rendered;
+    process.stdout.write(`${output}\n`);
   }
   return 0;
 }
