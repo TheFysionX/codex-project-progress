@@ -1,13 +1,14 @@
 {
   "name": "codex-project-progress",
-  "version": "0.1.3",
-  "description": "Evidence-weighted project progress bars and ETA ranges for Codex.",
+  "version": "0.2.0",
+  "description": "ETA-first project progress bars for ChatGPT, Codex, Claude Code, and NPX.",
   "type": "module",
   "bin": {
     "codex-project-progress": "skills/track-project-progress/scripts/progress.mjs"
   },
   "files": [
     "skills/track-project-progress",
+    ".codex-plugin/plugin.json",
     "README.md",
     "LICENSE"
   ],
@@ -26,6 +27,8 @@
   "homepage": "https://github.com/TheFysionX/codex-project-progress#readme",
   "keywords": [
     "codex",
+    "chatgpt",
+    "claude-code",
     "agent-skill",
     "progress-bar",
     "eta",

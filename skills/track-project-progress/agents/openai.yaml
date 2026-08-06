@@ -1,7 +1,7 @@
 interface:
   display_name: "Project Progress"
-  short_description: "Evidence-weighted progress bars and ETA ranges"
-  default_prompt: "Use $track-project-progress to assess this project, show a completion bar, and estimate the remaining time."
+  short_description: "ETA-first project progress in one clear card"
+  default_prompt: "Use $track-project-progress to show this project's goal, ETA, completion bar, and current task."
 
 policy:
   allow_implicit_invocation: true

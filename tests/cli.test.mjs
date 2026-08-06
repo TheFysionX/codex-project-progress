@@ -34,10 +34,17 @@ test("CLI emits structured JSON", () => {
 test("CLI demo renders without a ledger", () => {
   const result = run(["demo", "--theme", "compact", "--ascii", "--no-color"]);
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /Project Atlas · Ship the public beta 71%/);
+  assert.match(result.stdout, /GOAL  Ship the public beta/);
   assert.match(result.stdout, /ETA ~52m \(36m–1h 18m\) · medium confidence/);
+  assert.match(result.stdout, /-+ 71%/);
   assert.match(result.stdout, /NOW Verify production path/);
   assert.doesNotMatch(result.stdout, /Required goals:/);
+});
+
+test("CLI rejects an unknown install target", () => {
+  const result = run(["install", "--target", "everything"]);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /target must be all/);
 });
 
 test("CLI uses emoji color when ANSI color is unavailable", () => {

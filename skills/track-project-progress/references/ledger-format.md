@@ -1,6 +1,6 @@
 # Progress ledger format
 
-Read this reference when creating, updating, validating, or repairing `.codex/project-progress.json`.
+Read this reference when creating, updating, validating, or repairing `.project-progress.json` or a legacy `.codex/project-progress.json`.
 
 ## Schema
 

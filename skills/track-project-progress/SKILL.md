@@ -1,6 +1,6 @@
 ---
 name: track-project-progress
-description: Assess and track a project's evidence-weighted completion percentage, visual progress bar, completed and remaining work, elapsed effort, blockers, and ETA range. Use when a user asks how far through a project or task Codex is, requests a percent complete or progress bar, asks how much work or time remains, wants an ETA, or asks Codex to keep progress visible during ongoing work.
+description: Assess and track a project's evidence-weighted completion percentage, visual progress bar, completed and remaining work, elapsed effort, blockers, and ETA range. Use when a user asks how far through a project or task the agent is, requests a percent complete or progress bar, asks how much work or time remains, wants an ETA, or asks the agent to keep progress visible during ongoing work.
 ---
 
 # Track Project Progress
@@ -10,7 +10,7 @@ Give an honest, evidence-backed view of what the project is, what “done” req
 ## Choose the mode
 
 - Use **snapshot mode** for a one-off progress or ETA question. Inspect the available evidence and report inline without creating files.
-- Use **tracking mode** when the user asks to keep, maintain, or repeatedly update progress. Persist the ledger at `.codex/project-progress.json` in the relevant project root.
+- Use **tracking mode** when the user asks to keep, maintain, or repeatedly update progress. Persist the host-neutral ledger at `.project-progress.json` in the relevant project root. Reuse a legacy `.codex/project-progress.json` ledger when it already exists.
 - Reuse an existing ledger when present, but verify it against current files, tests, logs, tickets, and the user's latest requirement before trusting it.
 
 Do not mutate project files for a read-only status request. Follow all workspace instructions before creating or editing a ledger.
@@ -54,21 +54,21 @@ Read [references/ledger-format.md](references/ledger-format.md) before creating 
 For tracking mode, validate and render with:
 
 ```text
-node <skill-directory>/scripts/progress.mjs validate .codex/project-progress.json
-node <skill-directory>/scripts/progress.mjs render .codex/project-progress.json
+node <skill-directory>/scripts/progress.mjs validate .project-progress.json
+node <skill-directory>/scripts/progress.mjs render .project-progress.json
 ```
 
 Use the default `box` theme for the first assessment, scope changes, blockers, and milestone completions. Use `--theme compact` for shorter ongoing updates. Use `--ascii` if Unicode blocks do not render correctly, `--no-color` for captured logs, and `--json` when another tool needs structured output.
 
 ## Report the status
 
-Lead meaningful updates with the project goal, percentage bar, and a dominant ETA block. Show `NOW` as the only secondary status line. In snapshot mode, or when the renderer cannot run, use this compact shape:
+Lead meaningful updates with the goal, a dominant ETA block, the percentage bar, and `NOW` as the only secondary status line. Put the ETA before the bar. Do not add separate labels for likely range, active work, milestones, or completed work. In snapshot mode, or when the renderer cannot run, use this compact shape:
 
 ```text
-<project name> · <goal> <percentage>
-[🟩🟩🟩🟩🟩🟩⬜⬜⬜⬜]
-ETA <expected duration> (<uncertainty range>) · <confidence>
-NOW <task currently in progress>
+GOAL  <goal>
+ETA   <expected duration> (<uncertainty range>) · <confidence>
+[🟩🟩🟩🟩🟩🟩⬜⬜⬜⬜] <percentage>
+NOW   <task currently in progress>
 ```
 
 Keep done definitions, scope details, weighted-point math, milestone breakdowns, and evidence outside the visual unless the user requests them or they are necessary to explain a paused or uncertain ETA. Still maintain that evidence internally so the percentage and ETA remain honest. Label inferred scope or weighting briefly when it materially affects confidence.

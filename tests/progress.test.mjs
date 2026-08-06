@@ -64,6 +64,15 @@ test("boxed visualization matches its reviewed snapshot", async () => {
   assert.equal(output, expected);
 });
 
+test("ETA appears before the percentage bar and NOW", async () => {
+  const data = await fixture();
+  const output = renderText(data, calculate(data), { theme: "box", color: false, emoji: true });
+  assert.ok(output.indexOf("GOAL") < output.indexOf("ETA"));
+  assert.ok(output.indexOf("ETA") < output.indexOf("71%"));
+  assert.ok(output.indexOf("71%") < output.indexOf("NOW"));
+  assert.doesNotMatch(output, /Project Atlas|ACTIVE WORK|LIKELY RANGE/i);
+});
+
 test("emoji bars communicate healthy, blocked, and complete states", async () => {
   const data = await fixture();
   assert.match(renderText(data, calculate(data), { theme: "compact", emoji: true }), /🟩{7}⬜{3}/u);
@@ -90,9 +99,10 @@ test("compact ASCII visualization remains readable", async () => {
     ascii: true,
     color: false,
   });
-  assert.match(output, /^Project Atlas · Ship the public beta 71%/);
+  assert.match(output, /^GOAL  Ship the public beta/);
   assert.match(output, /#+-+/);
   assert.match(output, /ETA ~52m \(36m–1h 18m\) · medium confidence/);
+  assert.match(output, /-+ 71%/);
   assert.match(output, /NOW Verify production path/);
   assert.doesNotMatch(output, /Required goals|DONE|SCOPE/);
 });

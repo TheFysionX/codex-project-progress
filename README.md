@@ -1,92 +1,105 @@
-# Codex Project Progress
+# Project Progress
 
-An installable Codex skill and dependency-free NPX tool that turns project evidence into an honest completion percentage, ETA-first progress card, and current-work signal.
+An ETA-first Agent Skill and dependency-free NPX tool for ChatGPT, Codex, Claude Code, and compatible skill hosts. It turns project evidence into an honest completion percentage, one ETA with an uncertainty range, and the work happening now.
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────┐
-│ Project Atlas · Ship the public beta                             71% │
-│ 🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜                                                 │
+│ GOAL  Ship the public beta                                           │
 ├──────────────────────────────────────────────────────────────────────┤
 │ ETA                                                                  │
 │ ~52m (36m–1h 18m) · medium confidence                                │
+│ 🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜                                             71% │
 ├──────────────────────────────────────────────────────────────────────┤
 │ NOW  Verify production path                                          │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-## Install with NPX
+## Install locally
+
+Install for both OpenAI clients and Claude Code:
 
 ```bash
-npx codex-project-progress install
+npx codex-project-progress@latest install
 ```
 
-This installs `track-project-progress` in `~/.agents/skills`, the user-level skill location documented for Codex. Codex detects new skills automatically; restart it if the skill does not appear.
+The default `all` target installs the skill in:
 
-Try the renderer without installing anything:
+- `~/.agents/skills/track-project-progress` for ChatGPT Desktop, Codex CLI, and the Codex IDE extension.
+- `~/.claude/skills/track-project-progress` for Claude Code.
+
+Install only one target when preferred:
 
 ```bash
-npx codex-project-progress demo
+npx codex-project-progress@latest install --target openai
+npx codex-project-progress@latest install --target claude
 ```
 
-## Use in Codex
+Older Codex builds that still load personal skills from `~/.codex/skills` can use:
 
-Natural requests can invoke the skill:
+```bash
+npx codex-project-progress@latest install --target codex-legacy
+```
+
+Use `--force` to replace an existing copy. The installer moves the previous copy to a timestamped backup before replacing it.
+
+## Use it in chat
+
+Ask naturally:
 
 ```text
-How far through this project are we? Show the required goals, percentage, and ETA.
+How far through this project are we? Show the ETA and progress card.
 ```
 
-```text
-Keep the project progress card updated while you finish this task.
-```
+Or invoke the skill directly:
 
-Or invoke it explicitly:
+- ChatGPT: select `@track-project-progress` and ask it to reassess the project.
+- Codex: `Use $track-project-progress to reassess this project.`
+- Claude Code: `/track-project-progress reassess this project.`
 
-```text
-Use $track-project-progress to reassess this project from the current evidence.
-```
+One-off assessments are read-only. Ongoing tracking uses the host-neutral `.project-progress.json` ledger in the project root. Existing `.codex/project-progress.json` ledgers remain supported.
 
-One-off assessments are read-only. Ongoing tracking uses `.codex/project-progress.json` in the relevant project.
+## Client support
+
+| Surface | Supported path |
+|---|---|
+| Terminal | Run the dependency-free NPX renderer directly |
+| ChatGPT Desktop | Install the OpenAI skill or packaged plugin |
+| Codex Desktop, CLI, and IDE | Install the OpenAI skill |
+| Claude Code | Install the Claude target |
+| ChatGPT web or Claude cloud chats | Install or upload the packaged skill/plugin in that account |
+| Other agents | Copy `skills/track-project-progress` into a compatible Agent Skills directory |
+
+Local installation cannot silently add a skill to a cloud account. Cloud ChatGPT and Claude surfaces require their normal account-side plugin or skill installation step.
+
+## OpenAI plugin package
+
+The repository includes `.codex-plugin/plugin.json`, so the same workflow can be tested and submitted as an OpenAI plugin shared by ChatGPT and Codex. The NPM installer remains the fastest route for local clients; public appearance in the universal Plugins Directory requires OpenAI's plugin submission process.
 
 ## CLI
 
+Try the visualization without installing:
+
 ```bash
-# Install the skill
-npx codex-project-progress install
-
-# Render a ledger with the boxed theme
-npx codex-project-progress render .codex/project-progress.json
-
-# Use the shorter update format
-npx codex-project-progress render .codex/project-progress.json --theme compact
-
-# Work in terminals without Unicode support
-npx codex-project-progress render .codex/project-progress.json --ascii --no-color
-
-# Return structured calculations
-npx codex-project-progress render .codex/project-progress.json --json
-
-# Validate a ledger
-npx codex-project-progress validate .codex/project-progress.json
+npx codex-project-progress@latest demo
 ```
 
-Available themes are `box`, `compact`, and `plain`. Interactive terminals use ANSI color automatically. Codex and other non-interactive Unicode surfaces fall back to colored emoji bars: green for active progress, amber for low confidence, red for blockers, and blue for complete. Use `--color never`, `--no-color`, or `--ascii` for monochrome output.
+Render or validate a tracked project:
 
-## Install directly from GitHub
-
-Ask Codex:
-
-```text
-Use $skill-installer to install https://github.com/TheFysionX/codex-project-progress/tree/main/skills/track-project-progress
+```bash
+npx codex-project-progress render .project-progress.json
+npx codex-project-progress render .project-progress.json --theme compact
+npx codex-project-progress render .project-progress.json --ascii --no-color
+npx codex-project-progress render .project-progress.json --json
+npx codex-project-progress validate .project-progress.json
 ```
 
-You can also copy `skills/track-project-progress` to `~/.agents/skills/track-project-progress`.
+Available themes are `box`, `compact`, and `plain`. Interactive terminals use ANSI color. Unicode chat surfaces use colored emoji bars: green for active progress, amber for low confidence, red for blockers, and blue for complete.
 
 ## How the estimate works
 
-The percentage uses earned weighted points, not a raw task count. Required implementation, verification, deployment, and user acceptance can carry different weights. A task only reaches done when its stated evidence exists.
+The percentage uses earned weighted points rather than a raw task count. Required implementation, verification, deployment, and acceptance work can carry different weights, and a task reaches done only when its evidence exists.
 
-The ETA represents the work time required to finish. It excludes time waiting for users, approvals, external systems, or idle processes. When enough history exists, it blends bottom-up task estimates with observed time per earned weighted point and widens the parenthesized range when evidence is sparse or uncertain. Blocking dependencies pause the ETA rather than producing a fictional finish time.
+The ETA is active work time, not a calendar promise. It combines bottom-up remaining-task estimates with observed active time per earned weighted point. The parenthesized range widens when evidence is sparse or uncertain. Waiting, idle time, and unattended external jobs are excluded; blocking dependencies pause the ETA.
 
 ## Test and develop
 
@@ -97,8 +110,6 @@ npm test
 npm run test:package
 npm pack --dry-run
 ```
-
-The suite covers weighted progress, optional-scope exclusion, evidence requirements, uncertainty ranges, blockers, completed projects, boxed/compact/ASCII rendering, CLI JSON output, and installation into a clean temporary skill directory.
 
 ## License
 

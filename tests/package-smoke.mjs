@@ -15,6 +15,7 @@ for (const required of [
   "package.json",
   "README.md",
   "LICENSE",
+  ".codex-plugin/plugin.json",
   "skills/track-project-progress/SKILL.md",
   "skills/track-project-progress/agents/openai.yaml",
   "skills/track-project-progress/references/ledger-format.md",
@@ -24,6 +25,6 @@ for (const required of [
 }
 
 assert.equal(report.name, "codex-project-progress");
-assert.equal(report.version, "0.1.3");
+assert.equal(report.version, "0.2.0");
 assert.ok(![...files].some((path) => path.includes("__pycache__") || path.endsWith(".pyc")));
 process.stdout.write(`Package smoke test passed: ${report.filename} (${report.size} bytes)\n`);

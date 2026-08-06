@@ -1,0 +1,36 @@
+{
+  "name": "codex-project-progress",
+  "version": "0.2.0",
+  "description": "Show an evidence-backed completion bar with one prominent ETA and the work happening now.",
+  "author": {
+    "name": "TheFysionX",
+    "url": "https://github.com/TheFysionX"
+  },
+  "homepage": "https://github.com/TheFysionX/codex-project-progress#readme",
+  "repository": "https://github.com/TheFysionX/codex-project-progress",
+  "license": "MIT",
+  "keywords": [
+    "progress",
+    "eta",
+    "project-management",
+    "agent-skill"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Project Progress",
+    "shortDescription": "One clear ETA, progress bar, and current task",
+    "longDescription": "Turn project evidence into an honest weighted completion percentage, a prominent ETA with uncertainty and confidence, and a single NOW status.",
+    "developerName": "TheFysionX",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive"
+    ],
+    "websiteURL": "https://github.com/TheFysionX/codex-project-progress",
+    "defaultPrompt": [
+      "How far through this project are we?",
+      "Track the progress and ETA while you finish this task.",
+      "Reassess the remaining work and ETA."
+    ],
+    "brandColor": "#22C55E"
+  }
+}

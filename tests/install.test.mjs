@@ -8,8 +8,8 @@ import test from "node:test";
 
 const script = fileURLToPath(new URL("../skills/track-project-progress/scripts/progress.mjs", import.meta.url));
 
-function run(args) {
-  return spawnSync(process.execPath, [script, ...args], { encoding: "utf8" });
+function run(args, env = process.env) {
+  return spawnSync(process.execPath, [script, ...args], { encoding: "utf8", env });
 }
 
 test("installer copies the complete skill and backs up replacements", async () => {
@@ -35,4 +35,15 @@ test("installer copies the complete skill and backs up replacements", async () =
   assert.match(replacement.stdout, /Previous installation backed up/);
   const entries = await readdir(destination);
   assert.ok(entries.some((name) => name.startsWith("track-project-progress.backup-")));
+});
+
+test("default installer targets both OpenAI clients and Claude Code", async () => {
+  const profile = await mkdtemp(join(tmpdir(), "project-progress-profile-"));
+  const env = { ...process.env, HOME: profile, USERPROFILE: profile };
+  const result = run(["install"], env);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /OpenAI \(ChatGPT \+ Codex\): installed/);
+  assert.match(result.stdout, /Claude Code: installed/);
+  await readFile(join(profile, ".agents", "skills", "track-project-progress", "SKILL.md"), "utf8");
+  await readFile(join(profile, ".claude", "skills", "track-project-progress", "SKILL.md"), "utf8");
 });

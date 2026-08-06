@@ -11,6 +11,18 @@ const ANSI_PATTERN = /\u001b\[[0-9;]*m/g;
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const SKILL_DIRECTORY = resolve(dirname(SCRIPT_PATH), "..");
 
+function clientTargets(target, home = homedir()) {
+  const openai = { client: "OpenAI (ChatGPT + Codex)", root: join(home, ".agents", "skills") };
+  const claude = { client: "Claude Code", root: join(home, ".claude", "skills") };
+  const legacyCodex = { client: "Codex legacy", root: join(home, ".codex", "skills") };
+
+  if (["openai", "codex", "chatgpt"].includes(target)) return [openai];
+  if (target === "claude") return [claude];
+  if (target === "codex-legacy") return [legacyCodex];
+  if (target === "all") return [openai, claude];
+  throw new Error("--target must be all, openai, codex, chatgpt, claude, or codex-legacy");
+}
+
 function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
@@ -332,18 +344,18 @@ function renderBox(data, metrics, options) {
   const border = (left, right) => left + chars.horizontal.repeat(width - 2) + right;
   const line = (value = "") => `${chars.vertical} ${padVisible(value, contentWidth)} ${chars.vertical}`;
   const separator = border(chars.left, chars.right);
+  const header = `${paint("GOAL", "1;36", color)}  ${paint(fit(data.project.goal, contentWidth - 6, ascii), "1", color)}`;
   const headerPercent = paint(`${metrics.percent.toFixed(0)}%`, `1;${percentColor(metrics.percent)}`, color);
-  const titleWidth = contentWidth - stripAnsi(headerPercent).length - 1;
-  const title = paint(fit(`${data.project.name} · ${data.project.goal}`, titleWidth, ascii), "1;36", color);
-  const headerGap = Math.max(1, contentWidth - stripAnsi(title).length - stripAnsi(headerPercent).length);
+  const progress = options.emoji ? makeEmojiBar(metrics) : makeBar(metrics.percent, Math.max(10, contentWidth - 6), ascii, color);
+  const progressGap = Math.max(1, contentWidth - visibleWidth(progress) - visibleWidth(headerPercent));
   const current = metrics.currentTasks.length ? metrics.currentTasks.join(", ") : "none";
   const lines = [
     border(chars.topLeft, chars.topRight),
-    line(title + " ".repeat(headerGap) + headerPercent),
-    line(options.emoji ? makeEmojiBar(metrics) : makeBar(metrics.percent, contentWidth, ascii, color)),
+    line(header),
     separator,
     line(paint("ETA", "1;36", color)),
     line(paint(fit(etaText(metrics), contentWidth, ascii), "1", color)),
+    line(progress + " ".repeat(progressGap) + headerPercent),
     separator,
     line(`${paint("NOW", "1", color)}  ${fit(current, contentWidth - 5, ascii)}`),
     border(chars.bottomLeft, chars.bottomRight),
@@ -353,11 +365,11 @@ function renderBox(data, metrics, options) {
 
 function renderCompact(data, metrics, options) {
   const barWidth = Math.max(10, options.width - 20);
-  const title = `${data.project.name} · ${data.project.goal}`;
+  const progress = options.emoji ? makeEmojiBar(metrics) : makeBar(metrics.percent, barWidth, options.ascii, options.color);
   return [
-    `${paint(title, "1;36", options.color)} ${paint(`${metrics.percent.toFixed(0)}%`, `1;${percentColor(metrics.percent)}`, options.color)}`,
-    options.emoji ? makeEmojiBar(metrics) : makeBar(metrics.percent, barWidth, options.ascii, options.color),
+    `${paint("GOAL", "1;36", options.color)}  ${paint(data.project.goal, "1", options.color)}`,
     `${paint("ETA", "1;36", options.color)} ${paint(etaText(metrics), "1", options.color)}`,
+    `${progress} ${paint(`${metrics.percent.toFixed(0)}%`, `1;${percentColor(metrics.percent)}`, options.color)}`,
     `${paint("NOW", "1", options.color)} ${metrics.currentTasks.join(", ") || "none"}`,
   ].join("\n");
 }
@@ -365,10 +377,10 @@ function renderCompact(data, metrics, options) {
 function renderPlain(data, metrics, options) {
   const bar = options.emoji ? makeEmojiBar(metrics) : makeBar(metrics.percent, 20, options.ascii, options.color);
   return [
-    `${data.project.name} · ${data.project.goal} ${metrics.percent.toFixed(0)}%`,
-    `[${bar}]`,
-    `ETA: ${etaText(metrics)}`,
-    `NOW: ${metrics.currentTasks.join(", ") || "none"}`,
+    `GOAL  ${data.project.goal}`,
+    `ETA   ${etaText(metrics)}`,
+    `[${bar}] ${metrics.percent.toFixed(0)}%`,
+    `NOW   ${metrics.currentTasks.join(", ") || "none"}`,
   ].join("\n");
 }
 
@@ -459,7 +471,7 @@ function parseArgs(argv) {
       options[key] = true;
     } else if (key === "no-color") {
       options.color = "never";
-    } else if (["theme", "width", "color", "dest"].includes(key)) {
+    } else if (["theme", "width", "color", "dest", "target"].includes(key)) {
       const next = inline ?? argv[++index];
       if (next === undefined) throw new Error(`--${key} requires a value`);
       options[key] = next;
@@ -487,6 +499,13 @@ async function pathExists(path) {
   }
 }
 
+async function defaultLedgerPath() {
+  const current = resolve(".project-progress.json");
+  const legacy = resolve(join(".codex", "project-progress.json"));
+  if (await pathExists(current) || !(await pathExists(legacy))) return current;
+  return legacy;
+}
+
 async function installSkill(destinationRoot, force) {
   const target = resolve(destinationRoot, "track-project-progress");
   if (target === SKILL_DIRECTORY) {
@@ -504,12 +523,13 @@ async function installSkill(destinationRoot, force) {
 }
 
 function helpText() {
-  return `codex-project-progress 0.1.3
+  return `codex-project-progress 0.2.0
 
-Install and render the Track Project Progress Codex skill.
+Install and render the Track Project Progress agent skill.
 
 Usage:
-  codex-project-progress install [--dest <skills-dir>] [--force]
+  codex-project-progress install [--target all|openai|claude] [--force]
+  codex-project-progress install --dest <skills-dir> [--force]
   codex-project-progress demo [--theme box|compact|plain] [--ascii]
   codex-project-progress validate [ledger]
   codex-project-progress render [ledger] [--theme box|compact|plain]
@@ -517,11 +537,13 @@ Usage:
 Options:
   --ascii                 Use ASCII-only borders and markers
   --color auto|always|never
-  --dest <skills-dir>     Default: ~/.agents/skills
+  --dest <skills-dir>     Install to one custom skills directory
   --force                 Back up and replace an existing installed skill
   --json                  Return structured render output
   --no-color              Alias for --color never
   --theme <name>          box (default), compact, or plain
+  --target <client>       all (default), openai, codex, chatgpt, claude,
+                          or codex-legacy
   --width <52-100>        Width of the boxed renderer
 `;
 }
@@ -535,15 +557,28 @@ export async function main(argv = process.argv.slice(2)) {
   }
 
   if (command === "install") {
-    const root = options.dest ?? join(homedir(), ".agents", "skills");
-    const result = await installSkill(root, options.force ?? false);
-    if (result.alreadyInstalled) {
-      process.stdout.write(`Skill is already installed at ${result.target}\n`);
-    } else {
-      process.stdout.write(`Installed track-project-progress to ${result.target}\n`);
-      if (result.backup) process.stdout.write(`Previous installation backed up to ${result.backup}\n`);
-      process.stdout.write("Codex will detect the skill automatically; restart it if the skill does not appear.\n");
+    if (options.dest && options.target) throw new Error("use either --dest or --target, not both");
+    const targets = options.dest
+      ? [{ client: "Custom", root: options.dest }]
+      : clientTargets(options.target ?? "all");
+    const existing = [];
+    for (const target of targets) {
+      const skillPath = resolve(target.root, "track-project-progress");
+      if (skillPath !== SKILL_DIRECTORY && await pathExists(skillPath)) existing.push(skillPath);
     }
+    if (existing.length && !(options.force ?? false)) {
+      throw new Error(`skill already exists:\n- ${existing.join("\n- ")}\nRun again with --force to replace existing copies with recoverable backups.`);
+    }
+    for (const target of targets) {
+      const result = await installSkill(target.root, options.force ?? false);
+      if (result.alreadyInstalled) {
+        process.stdout.write(`${target.client}: already installed at ${result.target}\n`);
+      } else {
+        process.stdout.write(`${target.client}: installed at ${result.target}\n`);
+        if (result.backup) process.stdout.write(`Previous installation backed up to ${result.backup}\n`);
+      }
+    }
+    process.stdout.write("Start a new chat or restart open clients if the skill does not appear.\n");
     return 0;
   }
 
@@ -551,7 +586,9 @@ export async function main(argv = process.argv.slice(2)) {
   if (command === "demo") {
     data = demoLedger();
   } else if (["validate", "render"].includes(command)) {
-    const ledgerPath = resolve(options.positionals[0] ?? join(".codex", "project-progress.json"));
+    const ledgerPath = options.positionals[0]
+      ? resolve(options.positionals[0])
+      : await defaultLedgerPath();
     data = await loadLedger(ledgerPath);
     if (command === "validate") {
       process.stdout.write(`Ledger is valid: ${ledgerPath}\n`);
